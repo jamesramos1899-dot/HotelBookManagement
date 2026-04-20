@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getBookings, createBooking, updateBooking, cancelBooking, getRoomBookedDates } = require('../Controllers/bookingController');
+const { getBookings, createBooking, updateBooking, cancelBooking, deleteBooking, getRoomBookedDates } = require('../Controllers/bookingController');
 const { protect } = require('../Middleware/auth');
 const { adminOnly } = require('../Middleware/admin');
 
@@ -13,5 +13,7 @@ router.route('/')
 router.route('/:id')
   .put(protect, adminOnly, updateBooking)
   .delete(protect, cancelBooking);
+
+router.delete('/:id/delete', protect, deleteBooking);
 
 module.exports = router;

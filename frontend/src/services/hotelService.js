@@ -10,6 +10,16 @@ export const getHotel = async (id) => {
   return response.data;
 };
 
+export const createHotel = async (hotelData) => {
+  const response = await api.post('/hotels', hotelData);
+  return response.data;
+};
+
+export const updateHotel = async (id, hotelData) => {
+  const response = await api.put(`/hotels/${id}`, hotelData);
+  return response.data;
+};
+
 export const deleteHotel = async (id) => {
   const response = await api.delete(`/hotels/${id}`);
   return response.data;
@@ -32,7 +42,9 @@ export const addReview = async (id, reviewData) => {
 
 export default { 
   getHotels, 
-  getHotel, 
+  getHotel,
+  createHotel,
+  updateHotel,
   deleteHotel, 
   toggleFavorite, 
   getMyFavorites, 

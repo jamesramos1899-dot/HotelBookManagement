@@ -1,10 +1,8 @@
 import api from './api';
 
-// Get all rooms for a specific hotel (without date filtering for initial load)
 export const getHotelRooms = async (hotelId, checkIn, checkOut) => {
   let url = `/rooms/hotel/${hotelId}`;
   
-  // Add date parameters only when checking availability
   if (checkIn && checkOut) {
     url += `?checkIn=${checkIn}&checkOut=${checkOut}`;
   }
@@ -13,10 +11,30 @@ export const getHotelRooms = async (hotelId, checkIn, checkOut) => {
   return response.data;
 };
 
-// Get single room details
+// ADD THIS NEW FUNCTION
+export const getAllRooms = async () => {
+  const response = await api.get('/rooms');
+  return response.data;
+};
+
 export const getRoom = async (roomId) => {
   const response = await api.get(`/rooms/${roomId}`);
   return response.data;
 };
 
-export default { getHotelRooms, getRoom };
+export const createRoom = async (roomData) => {
+  const response = await api.post('/rooms', roomData);
+  return response.data;
+};
+
+export const updateRoom = async (roomId, roomData) => {
+  const response = await api.put(`/rooms/${roomId}`, roomData);
+  return response.data;
+};
+
+export const deleteRoom = async (roomId) => {
+  const response = await api.delete(`/rooms/${roomId}`);
+  return response.data;
+};
+
+export default { getHotelRooms, getAllRooms, getRoom, createRoom, updateRoom, deleteRoom };

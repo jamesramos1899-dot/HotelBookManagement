@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Calendar, Users, Star, MapPin, ChevronRight, Sparkles, Shield, Clock, Wifi, Car, Coffee, Waves, Diamond } from 'lucide-react';
 import Login from './Login';
 import Dashboard from './Dashboard';
+import AdminDashboard from './AdminDashboard';
 import authService from './services/authService';
 
 const App = () => {
@@ -9,12 +10,16 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [user, setUser] = useState(null);
 
-  // Check for logged in user on mount
   useEffect(() => {
     const loggedInUser = authService.getCurrentUser();
     if (loggedInUser) {
       setUser(loggedInUser);
-      setCurrentPage('dashboard');
+      // Redirect based on role
+      if (loggedInUser.role === 'admin') {
+        setCurrentPage('admin');
+      } else {
+        setCurrentPage('dashboard');
+      }
     }
     
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -24,16 +29,26 @@ const App = () => {
 
   const handleLogin = (userData) => {
     setUser(userData);
-    setCurrentPage('dashboard');
+    // Redirect based on role
+    if (userData.role === 'admin') {
+      setCurrentPage('admin');
+    } else {
+      setCurrentPage('dashboard');
+    }
   };
 
   const handleLogout = () => {
     authService.logout();
     setUser(null);
-    setCurrentPage('home');
+    setCurrentPage('home');  // Go back to home page after logout
   };
 
-  // Show Dashboard when logged in
+  // Show Admin Dashboard
+  if (currentPage === 'admin' && user?.role === 'admin') {
+    return <AdminDashboard user={user} onLogout={handleLogout} />;
+  }
+
+  // Show User Dashboard
   if (currentPage === 'dashboard' && user) {
     return <Dashboard user={user} onLogout={handleLogout} />;
   }
@@ -67,7 +82,7 @@ const App = () => {
             
             {user ? (
               <button 
-                onClick={() => setCurrentPage('dashboard')}
+                onClick={() => setCurrentPage(user.role === 'admin' ? 'admin' : 'dashboard')}
                 className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
               >
                 Dashboard
@@ -112,7 +127,7 @@ const App = () => {
               </div>
               <div className="p-2">
                 <button 
-                  onClick={() => user ? setCurrentPage('dashboard') : setCurrentPage('login')}
+                  onClick={() => user ? setCurrentPage(user.role === 'admin' ? 'admin' : 'dashboard') : setCurrentPage('login')}
                   className="w-full py-4 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all duration-300 flex items-center justify-center gap-2 group"
                 >
                   <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />

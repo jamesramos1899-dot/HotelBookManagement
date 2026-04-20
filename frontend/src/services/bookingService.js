@@ -15,9 +15,14 @@ export const cancelBooking = async (id) => {
   return response.data;
 };
 
+export const deleteBooking = async (id) => {
+  const response = await api.delete(`/bookings/${id}/delete`);
+  return response.data;
+};
+
 export const getRoomBookedDates = async (roomId, year, month) => {
   const response = await api.get(`/bookings/room/${roomId}/dates?year=${year}&month=${month}`);
   return response.data;
 };
 
-export default { createBooking, getMyBookings, cancelBooking, getRoomBookedDates };
+export default { createBooking, getMyBookings, cancelBooking, deleteBooking, getRoomBookedDates };

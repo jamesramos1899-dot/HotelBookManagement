@@ -9,7 +9,7 @@ const {
   addReview,
   toggleFavorite,
   getMyFavorites
-} = require('../Controllers/hotelController');
+} = require('../controllers/hotelController');
 const { protect } = require('../Middleware/auth');
 const { adminOnly } = require('../Middleware/admin');
 

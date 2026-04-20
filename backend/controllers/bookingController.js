@@ -14,7 +14,7 @@ exports.getBookings = async (req, res) => {
     const bookings = await Booking.find(query)
       .populate('hotel', 'name location images')
       .populate('room', 'roomNumber type pricePerNight')
-      .populate('user', 'name email');
+      .populate('user', 'name email phone avatar'); // ADDED: phone and avatar
     
     res.json({
       success: true,
@@ -113,7 +113,8 @@ exports.createBooking = async (req, res) => {
       status: 'confirmed'
     });
     
-    await booking.populate('hotel room');
+    // Populate with user phone for response
+    await booking.populate('hotel room user');
     
     res.status(201).json({
       success: true,
@@ -133,7 +134,11 @@ exports.updateBooking = async (req, res) => {
     const booking = await Booking.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
-    });
+    })
+    .populate('hotel', 'name location images')
+    .populate('room', 'roomNumber type pricePerNight')
+    .populate('user', 'name email phone avatar'); // ADDED: populate user fields
+    
     if (!booking) {
       return res.status(404).json({ success: false, error: 'Booking not found' });
     }
@@ -161,11 +166,44 @@ exports.cancelBooking = async (req, res) => {
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
     
-    booking = await Booking.findByIdAndUpdate(req.params.id, { status: 'cancelled' }, { new: true });
+    booking = await Booking.findByIdAndUpdate(req.params.id, { status: 'cancelled' }, { new: true })
+      .populate('hotel', 'name location images')
+      .populate('room', 'roomNumber type pricePerNight')
+      .populate('user', 'name email phone avatar'); // ADDED: populate user fields
     
     res.json({
       success: true,
       data: booking
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Delete booking permanently
+// @route   DELETE /api/bookings/:id/delete
+// @access  Private
+exports.deleteBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+    
+    if (booking.user.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+    
+    if (booking.status !== 'cancelled') {
+      return res.status(400).json({ success: false, error: 'Only cancelled bookings can be deleted' });
+    }
+    
+    await Booking.findByIdAndDelete(req.params.id);
+    
+    res.json({
+      success: true,
+      message: 'Booking deleted successfully'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

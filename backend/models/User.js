@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  avatar: {
+    type: String,
+    default: ''
+  },
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Hotel'

@@ -1,40 +1,68 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5001/api/auth';
-
-// Register user
-const register = async (userData) => {
-  const response = await axios.post(`${API_URL}/register`, userData);
-  if (response.data.success) {
-    localStorage.setItem('user', JSON.stringify(response.data.data));
-  }
-  return response.data;
-};
-
-// Login user
-const login = async (userData) => {
-  const response = await axios.post(`${API_URL}/login`, userData);
-  if (response.data.success) {
-    localStorage.setItem('user', JSON.stringify(response.data.data));
-  }
-  return response.data;
-};
-
-// Logout user
-const logout = () => {
-  localStorage.removeItem('user');
-};
-
-// Get current user from localStorage
-const getCurrentUser = () => {
-  return JSON.parse(localStorage.getItem('user'));
-};
+const API_URL = 'http://localhost:5001/api';
 
 const authService = {
-  register,
-  login,
-  logout,
-  getCurrentUser,
+  login: async (credentials) => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials)
+    });
+    const data = await response.json();
+    if (data.success) {
+      localStorage.setItem('user', JSON.stringify(data.data));
+    }
+    return data;
+  },
+
+  register: async (userData) => {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
+    const data = await response.json();
+    if (data.success) {
+      localStorage.setItem('user', JSON.stringify(data.data));
+    }
+    return data;
+  },
+
+  logout: () => {
+    localStorage.removeItem('user');
+  },
+
+  getCurrentUser: () => {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  },
+
+  updateProfile: async (userData, token) => {
+    const response = await fetch(`${API_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(userData)
+    });
+    const data = await response.json();
+    if (data.success) {
+      // Update local storage with new user data while preserving token
+      const currentUser = authService.getCurrentUser();
+      const updatedUser = { ...currentUser, ...data.data, token: currentUser.token };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+    return data;
+  },
+
+  getMe: async (token) => {
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: { 
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return await response.json();
+  }
 };
 
 export default authService;

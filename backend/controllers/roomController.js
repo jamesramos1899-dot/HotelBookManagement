@@ -1,11 +1,29 @@
 const Room = require('../Models/Room');
+const Hotel = require('../Models/Hotel');
+
+// Helper function to update hotel room count AND max capacity
+const updateHotelStats = async (hotelId) => {
+  try {
+    const rooms = await Room.find({ hotel: hotelId });
+    const roomCount = rooms.length;
+    // Calculate max capacity from rooms (max of all room capacities)
+    const maxCapacity = rooms.length > 0 ? Math.max(...rooms.map(r => r.capacity)) : 0;
+    
+    await Hotel.findByIdAndUpdate(hotelId, { 
+      roomCount: roomCount,
+      maxCapacity: maxCapacity 
+    });
+  } catch (error) {
+    console.error('Error updating hotel stats:', error);
+  }
+};
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
 // @access  Public
 exports.getRooms = async (req, res) => {
   try {
-    const rooms = await Room.find().populate('hotel', 'name location');
+    const rooms = await Room.find().populate('hotel', 'name location images');
     res.json({
       success: true,
       count: rooms.length,
@@ -84,6 +102,10 @@ exports.getRoomsByHotel = async (req, res) => {
 exports.createRoom = async (req, res) => {
   try {
     const room = await Room.create(req.body);
+    
+    // Update hotel room count AND max capacity
+    await updateHotelStats(req.body.hotel);
+    
     res.status(201).json({
       success: true,
       data: room
@@ -98,13 +120,26 @@ exports.createRoom = async (req, res) => {
 // @access  Private/Admin
 exports.updateRoom = async (req, res) => {
   try {
+    const oldRoom = await Room.findById(req.params.id);
+    if (!oldRoom) {
+      return res.status(404).json({ success: false, error: 'Room not found' });
+    }
+    
+    const oldHotelId = oldRoom.hotel.toString();
+    
     const room = await Room.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
     });
-    if (!room) {
-      return res.status(404).json({ success: false, error: 'Room not found' });
+    
+    // Update old hotel stats
+    await updateHotelStats(oldHotelId);
+    
+    // If hotel changed, update new hotel stats too
+    if (req.body.hotel && req.body.hotel !== oldHotelId) {
+      await updateHotelStats(req.body.hotel);
     }
+    
     res.json({
       success: true,
       data: room
@@ -119,10 +154,17 @@ exports.updateRoom = async (req, res) => {
 // @access  Private/Admin
 exports.deleteRoom = async (req, res) => {
   try {
-    const room = await Room.findByIdAndDelete(req.params.id);
+    const room = await Room.findById(req.params.id);
     if (!room) {
       return res.status(404).json({ success: false, error: 'Room not found' });
     }
+    
+    const hotelId = room.hotel;
+    await Room.findByIdAndDelete(req.params.id);
+    
+    // Update hotel room count AND max capacity
+    await updateHotelStats(hotelId);
+    
     res.json({
       success: true,
       data: {}

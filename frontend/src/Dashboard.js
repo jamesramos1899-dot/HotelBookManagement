@@ -5,11 +5,13 @@ import {
   ChevronRight, Check, ChevronDown, X, Bed, Loader2,
   Moon, Clock, CreditCard, Trash2, AlertCircle, 
   Heart as HeartIcon, Star as StarIcon, MessageSquare,
-  Trash
+  Trash, Phone, Camera, Upload, Eye
 } from 'lucide-react';
 import { getHotels, deleteHotel, toggleFavorite, getMyFavorites, addReview } from './services/hotelService';
 import { getHotelRooms } from './services/roomService';
-import { createBooking, getMyBookings, cancelBooking, getRoomBookedDates } from './services/bookingService';
+import { createBooking, getMyBookings, cancelBooking, deleteBooking, getRoomBookedDates } from './services/bookingService';
+import api from './services/api';
+import authService from './services/authService';
 
 // STAR RATING COMPONENT
 const StarRating = ({ rating, maxStars = 5, size = "sm", interactive = false, onRate }) => {
@@ -315,6 +317,57 @@ const ReviewModal = ({ isOpen, onClose, hotel, onSubmit }) => {
   );
 };
 
+// REVIEWS DISPLAY MODAL - Shows all public reviews for a hotel
+const ReviewsDisplayModal = ({ isOpen, onClose, hotel }) => {
+  if (!isOpen || !hotel) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-slate-900 rounded-2xl p-6 max-w-2xl w-full border border-white/10 shadow-2xl max-h-[80vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-xl font-bold">Reviews for {hotel.name}</h3>
+            <p className="text-gray-400 text-sm">{hotel.reviews?.length || 0} reviews</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {hotel.reviews && hotel.reviews.length > 0 ? (
+            hotel.reviews.map((review, idx) => (
+              <div key={idx} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-sm font-bold">
+                      {review.user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{review.user?.name || 'Anonymous'}</p>
+                      <p className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-yellow-400">
+                    <Star className="w-4 h-4 fill-yellow-400" />
+                    <span className="font-bold">{review.rating}</span>
+                  </div>
+                </div>
+                <p className="text-gray-300 text-sm leading-relaxed">"{review.comment}"</p>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8">
+              <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400">No reviews yet. Be the first to review!</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('browse');
   const [searchQuery, setSearchQuery] = useState('');
@@ -335,6 +388,7 @@ const Dashboard = ({ user, onLogout }) => {
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   
   const [reviewModal, setReviewModal] = useState({ isOpen: false, hotel: null });
+  const [reviewsModal, setReviewsModal] = useState({ isOpen: false, hotel: null });
   
   const [alertModal, setAlertModal] = useState({
     isOpen: false,
@@ -342,6 +396,16 @@ const Dashboard = ({ user, onLogout }) => {
     message: '',
     type: 'error'
   });
+  
+  // Profile state
+  const [profileData, setProfileData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    avatar: user?.avatar || ''
+  });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -369,6 +433,9 @@ const Dashboard = ({ user, onLogout }) => {
     if (activeTab === 'favorites') {
       fetchFavorites();
     }
+    if (activeTab === 'profile') {
+      fetchUserProfile();
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -390,26 +457,84 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
+  // Fetch user profile to get latest data including phone
+  const fetchUserProfile = async () => {
+    try {
+      const response = await api.get('/auth/me');
+      if (response.data.success) {
+        const userData = response.data.data;
+        setProfileData({
+          name: userData.name || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          avatar: userData.avatar || ''
+        });
+        // Update localStorage user data too
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          localStorage.setItem('user', JSON.stringify({ ...currentUser, ...userData }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch profile', err);
+    }
+  };
+
+  // Calculate hotel max capacity from rooms
+  const calculateHotelMaxCapacity = (hotelRooms) => {
+    if (!hotelRooms || hotelRooms.length === 0) return 0;
+    return Math.max(...hotelRooms.map(room => room.capacity || 0));
+  };
+
   const fetchHotels = async () => {
     try {
       setLoading(true);
       const response = await getHotels();
       if (response.success) {
-        const transformedHotels = response.data.map(hotel => ({
-          id: hotel._id,
-          name: hotel.name,
-          location: `${hotel.location.city}, ${hotel.location.country}`,
-          price: hotel.starRating * 500,
-          rating: hotel.averageRating || hotel.starRating,
-          reviewCount: hotel.reviewCount || 0,
-          image: hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
-          amenities: hotel.amenities,
-          description: hotel.description,
-          maxGuests: 4,
-          roomTypes: ['Standard', 'Deluxe', 'Suite'],
-          reviews: hotel.reviews || []
-        }));
-        setHotels(transformedHotels);
+        // Fetch rooms for each hotel to calculate actual max capacity
+        const hotelsWithRooms = await Promise.all(
+          response.data.map(async (hotel) => {
+            try {
+              const roomsRes = await getHotelRooms(hotel._id);
+              const hotelRooms = roomsRes.success ? roomsRes.data : [];
+              const maxCapacity = calculateHotelMaxCapacity(hotelRooms);
+              
+              return {
+                id: hotel._id,
+                name: hotel.name,
+                location: `${hotel.location.city}, ${hotel.location.country}`,
+                price: hotel.starRating * 500,
+                rating: hotel.averageRating || hotel.starRating,
+                reviewCount: hotel.reviewCount || 0,
+                image: hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+                amenities: hotel.amenities,
+                description: hotel.description,
+                maxGuests: maxCapacity || hotel.maxGuests || 4, // Use calculated capacity or fallback
+                roomTypes: [...new Set(hotelRooms.map(r => r.type))] || ['Standard', 'Deluxe', 'Suite'],
+                reviews: hotel.reviews || [],
+                rooms: hotelRooms // Store rooms for filtering
+              };
+            } catch (err) {
+              // Fallback if rooms fetch fails
+              return {
+                id: hotel._id,
+                name: hotel.name,
+                location: `${hotel.location.city}, ${hotel.location.country}`,
+                price: hotel.starRating * 500,
+                rating: hotel.averageRating || hotel.starRating,
+                reviewCount: hotel.reviewCount || 0,
+                image: hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+                amenities: hotel.amenities,
+                description: hotel.description,
+                maxGuests: hotel.maxGuests || 4,
+                roomTypes: ['Standard', 'Deluxe', 'Suite'],
+                reviews: hotel.reviews || [],
+                rooms: []
+              };
+            }
+          })
+        );
+        setHotels(hotelsWithRooms);
       }
     } catch (err) {
       setError('Failed to load hotels');
@@ -515,7 +640,7 @@ const Dashboard = ({ user, onLogout }) => {
   const handleSubmitReview = async (hotelId, reviewData) => {
     try {
       await addReview(hotelId, reviewData);
-      await fetchHotels();
+      await fetchHotels(); // Refresh to show new review
       setAlertModal({
         isOpen: true,
         title: 'Review Submitted',
@@ -548,15 +673,123 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
+  const handleDeleteBooking = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this cancelled booking? This action cannot be undone.')) return;
+    
+    try {
+      setLoading(true);
+      const response = await deleteBooking(bookingId);
+      if (response.success) {
+        await fetchMyBookings();
+        setAlertModal({
+          isOpen: true,
+          title: 'Deleted',
+          message: 'Booking has been permanently deleted',
+          type: 'success'
+        });
+      }
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.error || 'Failed to delete booking',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Profile update handlers
+  const handleProfileUpdate = async () => {
+    try {
+      setLoading(true);
+      const response = await api.put('/auth/me', {
+        name: profileData.name,
+        phone: profileData.phone
+      });
+      
+      if (response.data.success) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Profile updated successfully',
+          type: 'success'
+        });
+        setIsEditingProfile(false);
+        fetchUserProfile(); // Refresh data
+      }
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.error || 'Failed to update profile',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      setUploadingPhoto(true);
+      const response = await api.put('/auth/me/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      if (response.data.success) {
+        setProfileData(prev => ({ ...prev, avatar: response.data.data.avatar }));
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Profile photo updated',
+          type: 'success'
+        });
+        fetchUserProfile();
+      }
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to upload photo',
+        type: 'error'
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  // FIXED: Filter hotels by actual room capacity, not hardcoded maxGuests
   const filteredHotels = useMemo(() => {
     let filtered = hotels;
+    
+    // Search filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(hotel => 
         hotel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         hotel.location.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    filtered = filtered.filter(hotel => hotel.maxGuests >= selectedGuests);
+    
+    // Guest capacity filter - only show hotels that have at least one room fitting selected guests
+    filtered = filtered.filter(hotel => {
+      // If we have room data, check if any room can accommodate
+      if (hotel.rooms && hotel.rooms.length > 0) {
+        return hotel.rooms.some(room => room.capacity >= selectedGuests);
+      }
+      // Fallback to maxGuests if rooms not loaded
+      return hotel.maxGuests >= selectedGuests;
+    });
+    
     return filtered;
   }, [searchQuery, selectedGuests, hotels]);
 
@@ -719,12 +952,21 @@ const Dashboard = ({ user, onLogout }) => {
       </nav>
       <div className="pt-6 border-t border-white/10">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold">
-            {user?.name?.charAt(0) || 'U'}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold overflow-hidden">
+            {profileData.avatar ? (
+              <img src={profileData.avatar} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              user?.name?.charAt(0) || 'U'
+            )}
           </div>
           <div>
             <p className="font-medium text-sm">{user?.name || 'User'}</p>
             <p className="text-xs text-gray-400">{user?.email || 'user@example.com'}</p>
+            {profileData.phone && (
+              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                <Phone className="w-3 h-3" /> {profileData.phone}
+              </p>
+            )}
           </div>
         </div>
         <button onClick={onLogout} className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm">
@@ -840,8 +1082,18 @@ const Dashboard = ({ user, onLogout }) => {
                       </span>
                     </div>
 
-                    {booking.status !== 'cancelled' && (
-                      <div className="flex justify-end">
+                    <div className="flex justify-end gap-3">
+                      {booking.status === 'cancelled' && (
+                        <button 
+                          onClick={() => handleDeleteBooking(booking._id)}
+                          disabled={loading}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete Booking
+                        </button>
+                      )}
+                      {booking.status !== 'cancelled' && (
                         <button 
                           onClick={() => handleCancelBooking(booking._id)}
                           disabled={loading}
@@ -850,8 +1102,8 @@ const Dashboard = ({ user, onLogout }) => {
                           <Trash2 className="w-4 h-4" />
                           Cancel Booking
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -879,28 +1131,34 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {favorites.map(hotel => (
-            <HotelCard 
-              key={hotel._id} 
-              hotel={{
-                id: hotel._id,
-                name: hotel.name,
-                location: `${hotel.location.city}, ${hotel.location.country}`,
-                price: hotel.starRating * 500,
-                rating: hotel.averageRating || hotel.starRating,
-                reviewCount: hotel.reviewCount || 0,
-                image: hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
-                amenities: hotel.amenities,
-                description: hotel.description,
-                maxGuests: 4,
-                roomTypes: ['Standard', 'Deluxe', 'Suite']
-              }} 
-              onBookNow={handleBookNow}
-              isHovered={hoveredHotel === hotel._id}
-              onHover={() => setHoveredHotel(hotel._id)}
-              onLeave={() => setHoveredHotel(null)}
-            />
-          ))}
+          {favorites.map(hotel => {
+            // Calculate max capacity for favorites too
+            const maxCap = hotel.maxGuests || 4;
+            
+            return (
+              <HotelCard 
+                key={hotel._id} 
+                hotel={{
+                  id: hotel._id,
+                  name: hotel.name,
+                  location: `${hotel.location.city}, ${hotel.location.country}`,
+                  price: hotel.starRating * 500,
+                  rating: hotel.averageRating || hotel.starRating,
+                  reviewCount: hotel.reviewCount || 0,
+                  image: hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+                  amenities: hotel.amenities,
+                  description: hotel.description,
+                  maxGuests: maxCap,
+                  roomTypes: ['Standard', 'Deluxe', 'Suite'],
+                  reviews: hotel.reviews || []
+                }} 
+                onBookNow={handleBookNow}
+                isHovered={hoveredHotel === hotel._id}
+                onHover={() => setHoveredHotel(hotel._id)}
+                onLeave={() => setHoveredHotel(null)}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -953,6 +1211,32 @@ const Dashboard = ({ user, onLogout }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Show existing reviews in booking modal */}
+              {selectedHotel.reviews && selectedHotel.reviews.length > 0 && (
+                <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-bold text-sm flex items-center gap-2">
+                      <Star className="w-4 h-4 text-yellow-400" />
+                      Guest Reviews ({selectedHotel.reviews.length})
+                    </h4>
+                    <button 
+                      onClick={() => setReviewsModal({ isOpen: true, hotel: selectedHotel })}
+                      className="text-xs text-cyan-400 hover:text-cyan-300"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {selectedHotel.reviews.slice(0, 2).map((review, idx) => (
+                      <div key={idx} className="text-sm text-gray-400 border-l-2 border-yellow-500/30 pl-3">
+                        <p className="italic">"{review.comment}"</p>
+                        <p className="text-xs text-gray-500 mt-1">— {review.user?.name || 'Guest'}, {review.rating}★</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {bookingStep === 'rooms' ? (
                 <div className="mb-6">
@@ -1212,6 +1496,32 @@ const Dashboard = ({ user, onLogout }) => {
               </span>
             ))}
           </div>
+          
+          {/* Show recent reviews preview */}
+          {hotel.reviews && hotel.reviews.length > 0 && (
+            <div className="mb-3 p-2 bg-white/5 rounded-lg border border-white/5">
+              <div className="flex items-center gap-1 mb-1">
+                <MessageSquare className="w-3 h-3 text-cyan-400" />
+                <span className="text-xs text-gray-400">Latest review:</span>
+              </div>
+              <p className="text-xs text-gray-300 italic line-clamp-1">"{hotel.reviews[hotel.reviews.length - 1].comment}"</p>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-gray-500">
+                  — {hotel.reviews[hotel.reviews.length - 1].user?.name || 'Guest'}
+                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReviewsModal({ isOpen: true, hotel });
+                  }}
+                  className="text-xs text-cyan-400 hover:text-cyan-300"
+                >
+                  View all {hotel.reviews.length} reviews
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex justify-between items-center pt-4 border-t border-white/10">
             <div>
               <span className="text-2xl font-bold text-cyan-400">${hotel.price}</span>
@@ -1323,51 +1633,279 @@ const Dashboard = ({ user, onLogout }) => {
           ))}
         </div>
       )}
+      
+      {filteredHotels.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400 mb-2">No hotels found for {selectedGuests} guests</p>
+          <p className="text-gray-500 text-sm">Try selecting fewer guests or check back later</p>
+        </div>
+      )}
     </div>
   );
 
+  // PROFILE COMPONENT
+  // PROFILE COMPONENT
+const Profile = () => {
+  // Separate local form state from main profile state
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: ''
+  });
+  
+  // Initialize edit form when entering edit mode
+  useEffect(() => {
+    if (isEditingProfile) {
+      setEditForm({
+        name: profileData.name || '',
+        phone: profileData.phone || ''
+      });
+    }
+  }, [isEditingProfile]);
+
+  // Handle input changes without losing focus
+  const handleInputChange = (field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Save changes only when button is clicked
+  const handleSaveChanges = async () => {
+    try {
+      setLoading(true);
+      const response = await api.put('/auth/me', {
+        name: editForm.name,
+        phone: editForm.phone
+      });
+      
+      if (response.data.success) {
+        // Update main state only after successful save
+        setProfileData(prev => ({
+          ...prev,
+          name: editForm.name,
+          phone: editForm.phone
+        }));
+        
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Profile updated successfully',
+          type: 'success'
+        });
+        setIsEditingProfile(false);
+        
+        // Refresh user data in background
+        fetchUserProfile();
+      }
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.error || 'Failed to update profile',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto relative">
-        {activeTab === 'browse' && <BrowseHotels />}
-        {activeTab === 'bookings' && <MyBookings />}
-        {activeTab === 'favorites' && <Favorites />}
-        {activeTab === 'profile' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Profile</h2>
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 max-w-md border border-white/10">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-2xl font-bold">
-                  {user?.name?.charAt(0) || 'U'}
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">My Profile</h2>
+      <p className="text-gray-400 text-sm">Manage your account</p>
+      
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 max-w-2xl border border-white/10">
+        {/* Avatar Section */}
+        <div className="flex items-center gap-6 mb-8">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-3xl font-bold overflow-hidden">
+              {profileData.avatar ? (
+                <img src={profileData.avatar} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                profileData.name?.charAt(0) || 'U'
+              )}
+            </div>
+            <label className="absolute bottom-0 right-0 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center cursor-pointer border border-white/20 hover:bg-slate-700 transition-colors">
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handlePhotoUpload}
+                disabled={uploadingPhoto}
+              />
+              {uploadingPhoto ? (
+                <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+              ) : (
+                <Camera className="w-4 h-4 text-white" />
+              )}
+            </label>
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-xl font-bold">{profileData.name || 'User'}</h3>
+            <p className="text-gray-400 text-sm">{profileData.email}</p>
+            <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+              <Phone className="w-3 h-3" /> {profileData.phone || 'No phone added'}
+            </p>
+          </div>
+          
+          <button
+            onClick={() => setIsEditingProfile(!isEditingProfile)}
+            className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
+          >
+            {isEditingProfile ? 'Cancel' : 'Edit Profile'}
+          </button>
+        </div>
+
+        {isEditingProfile ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Full Name</label>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                autoFocus
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Email</label>
+              <input
+                type="email"
+                value={profileData.email}
+                disabled
+                className="w-full p-3 bg-slate-800/50 border border-white/10 rounded-xl text-gray-500 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                placeholder="09123456789"
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+              />
+            </div>
+            
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={loading}
+                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Member Since</p>
+                <p className="font-medium">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Role</p>
+                <p className="font-medium capitalize">{user?.role || 'User'}</p>
+              </div>
+            </div>
+            
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Account Stats</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-cyan-400">{myBookings.length}</p>
+                  <p className="text-xs text-gray-400">Bookings</p>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">{user?.name || 'User'}</h3>
-                  <p className="text-gray-400">{user?.email || 'user@example.com'}</p>
-                  {isAdmin && (
-                    <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded mt-1 inline-block">Admin</span>
-                  )}
+                  <p className="text-2xl font-bold text-purple-400">{favorites.length}</p>
+                  <p className="text-xs text-gray-400">Favorites</p>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <div className="p-4 bg-white/5 rounded-xl">
-                  <p className="text-sm text-gray-400 mb-1">Member Since</p>
-                  <p className="font-medium">{new Date(user?.createdAt).toLocaleDateString() || 'April 2026'}</p>
-                </div>
-                <div className="p-4 bg-white/5 rounded-xl">
-                  <p className="text-sm text-gray-400 mb-1">Total Bookings</p>
-                  <p className="font-medium">{myBookings.length}</p>
-                </div>
-                <div className="p-4 bg-white/5 rounded-xl">
-                  <p className="text-sm text-gray-400 mb-1">Favorites</p>
-                  <p className="font-medium">{favorites.length}</p>
+                <div>
+                  <p className="text-2xl font-bold text-green-400">
+                    {hotels.reduce((acc, hotel) => {
+                      const userReviews = hotel.reviews?.filter(r => r.user?._id === user?._id).length || 0;
+                      return acc + userReviews;
+                    }, 0)}
+                  </p>
+                  <p className="text-xs text-gray-400">Reviews</p>
                 </div>
               </div>
             </div>
           </div>
         )}
-      </main>
+      </div>
+    </div>
+  );
+};
+
+  // MAIN RENDER
+  return (
+    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-slate-900/50 border-b border-white/10 p-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {activeTab === 'browse' && 'Discover Hotels'}
+              {activeTab === 'bookings' && 'My Bookings'}
+              {activeTab === 'favorites' && 'My Favorites'}
+              {activeTab === 'profile' && 'My Profile'}
+            </h1>
+            <p className="text-gray-400 text-sm mt-1">
+              {activeTab === 'browse' && 'Find your perfect stay'}
+              {activeTab === 'bookings' && 'Manage your reservations'}
+              {activeTab === 'favorites' && 'Your saved hotels'}
+              {activeTab === 'profile' && 'Manage your account'}
+            </p>
+          </div>
+          
+          {isAdmin && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-purple-500/20 border border-purple-500/30 rounded-full">
+              <Star className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-medium text-purple-400">Admin</span>
+            </div>
+          )}
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'browse' && <BrowseHotels />}
+          {activeTab === 'bookings' && <MyBookings />}
+          {activeTab === 'favorites' && <Favorites />}
+          {activeTab === 'profile' && <Profile />}
+        </main>
+      </div>
+
       {selectedHotel && <BookingModal />}
+      
+      <ReviewModal 
+        isOpen={reviewModal.isOpen} 
+        onClose={() => setReviewModal({ isOpen: false, hotel: null })}
+        hotel={reviewModal.hotel}
+        onSubmit={handleSubmitReview}
+      />
+      
+      <ReviewsDisplayModal
+        isOpen={reviewsModal.isOpen}
+        onClose={() => setReviewsModal({ isOpen: false, hotel: null })}
+        hotel={reviewsModal.hotel}
+      />
       
       <AlertModal 
         isOpen={alertModal.isOpen}
@@ -1376,15 +1914,8 @@ const Dashboard = ({ user, onLogout }) => {
         message={alertModal.message}
         type={alertModal.type}
       />
-      
-      <ReviewModal
-        isOpen={reviewModal.isOpen}
-        onClose={() => setReviewModal({ isOpen: false, hotel: null })}
-        hotel={reviewModal.hotel}
-        onSubmit={handleSubmitReview}
-      />
     </div>
   );
 };
-  
+
 export default Dashboard;

@@ -70,6 +70,15 @@ const hotelSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // ADD THESE FIELDS:
+  roomCount: {
+    type: Number,
+    default: 0
+  },
+  maxCapacity: {
+    type: Number,
+    default: 0
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -26,23 +26,25 @@
     box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
   }
 }
-/* Date Picker Styling */
+
+/* Date Picker Styling - FIXED */
 .date-picker {
   position: relative;
   color-scheme: dark;
 }
 
+/* FIXED: Removed the problematic absolute positioning that was blocking clicks */
 .date-picker::-webkit-calendar-picker-indicator {
   background: transparent;
-  bottom: 0;
   color: transparent;
   cursor: pointer;
-  height: auto;
-  left: 0;
+  width: 20px;
+  height: 20px;
   position: absolute;
-  right: 0;
-  top: 0;
-  width: auto;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  /* Removed: bottom: 0, left: 0, and full coverage that was causing issues */
 }
 
 .date-picker::-webkit-datetime-edit {
@@ -71,4 +73,27 @@
   padding: 16px;
   min-width: 320px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+/* ADD THIS: Ensure all inputs are properly clickable */
+input, textarea, select {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+/* ADD THIS: Ensure modal content is above backdrop */
+.fixed.inset-0 {
+  isolation: isolate;
+}
+
+/* ADD THIS: Ensure form inputs in modals work properly */
+form input,
+form textarea,
+form select {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
 }
