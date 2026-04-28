@@ -204,9 +204,9 @@ const App = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
             <Diamond className="w-6 h-6 text-cyan-400" />
-            <span className="text-xl font-bold">AI'STAY</span>
+            <span className="text-xl font-bold">AI STAY</span>
           </div>
-          <p className="text-gray-500 text-sm">© 2026 AI'STAY. The future of luxury hospitality.</p>
+          <p className="text-gray-500 text-sm">© 2026 AI STAY. The future of luxury hospitality.</p>
           <div className="flex gap-6">
             <a href="#" className="text-gray-400 hover:text-cyan-400 transition-colors">Privacy</a>
             <a href="#" className="text-gray-400 hover:text-cyan-400 transition-colors">Terms</a>

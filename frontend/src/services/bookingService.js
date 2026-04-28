@@ -25,4 +25,9 @@ export const getRoomBookedDates = async (roomId, year, month) => {
   return response.data;
 };
 
-export default { createBooking, getMyBookings, cancelBooking, deleteBooking, getRoomBookedDates };
+export const getHotelBookedDates = async (hotelId) => {
+  const res = await api.get(`/bookings/hotel/${hotelId}/dates`);
+  return res.data;
+};
+
+export default { createBooking, getMyBookings, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates };

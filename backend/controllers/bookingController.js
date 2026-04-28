@@ -1,6 +1,12 @@
 const Booking = require('../Models/Booking');
 const Room = require('../Models/Room');
 
+// Helper: Format date to YYYY-MM-DD using UTC
+const formatUTCDate = (date) => {
+  const d = new Date(date);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+};
+
 // @desc    Get all bookings (Admin: all, User: own)
 // @route   GET /api/bookings
 // @access  Private
@@ -14,7 +20,7 @@ exports.getBookings = async (req, res) => {
     const bookings = await Booking.find(query)
       .populate('hotel', 'name location images')
       .populate('room', 'roomNumber type pricePerNight')
-      .populate('user', 'name email phone avatar'); // ADDED: phone and avatar
+      .populate('user', 'name email phone avatar');
     
     res.json({
       success: true,
@@ -45,10 +51,15 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // FIX: Use Date.UTC to prevent timezone shift
+    const [y1, m1, d1] = checkInDate.split('-');
+    const checkIn = new Date(Date.UTC(y1, m1 - 1, d1));
+    const [y2, m2, d2] = checkOutDate.split('-');
+    const checkOut = new Date(Date.UTC(y2, m2 - 1, d2));
+    
+    // FIX: Use Date.UTC for today comparison
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
     if (checkIn < today) {
       return res.status(400).json({ success: false, error: 'Check-in date cannot be in the past' });
@@ -83,8 +94,8 @@ exports.createBooking = async (req, res) => {
     });
     
     if (conflictingBooking) {
-      const conflictCheckIn = new Date(conflictingBooking.checkInDate).toLocaleDateString('en-GB');
-      const conflictCheckOut = new Date(conflictingBooking.checkOutDate).toLocaleDateString('en-GB');
+      const conflictCheckIn = formatUTCDate(conflictingBooking.checkInDate);
+      const conflictCheckOut = formatUTCDate(conflictingBooking.checkOutDate);
       
       return res.status(409).json({ 
         success: false, 
@@ -113,7 +124,6 @@ exports.createBooking = async (req, res) => {
       status: 'confirmed'
     });
     
-    // Populate with user phone for response
     await booking.populate('hotel room user');
     
     res.status(201).json({
@@ -137,7 +147,7 @@ exports.updateBooking = async (req, res) => {
     })
     .populate('hotel', 'name location images')
     .populate('room', 'roomNumber type pricePerNight')
-    .populate('user', 'name email phone avatar'); // ADDED: populate user fields
+    .populate('user', 'name email phone avatar');
     
     if (!booking) {
       return res.status(404).json({ success: false, error: 'Booking not found' });
@@ -169,7 +179,7 @@ exports.cancelBooking = async (req, res) => {
     booking = await Booking.findByIdAndUpdate(req.params.id, { status: 'cancelled' }, { new: true })
       .populate('hotel', 'name location images')
       .populate('room', 'roomNumber type pricePerNight')
-      .populate('user', 'name email phone avatar'); // ADDED: populate user fields
+      .populate('user', 'name email phone avatar');
     
     res.json({
       success: true,
@@ -225,8 +235,8 @@ exports.getRoomBookedDates = async (req, res) => {
       });
     }
 
-    const startOfMonth = new Date(parseInt(year), parseInt(month), 1);
-    const endOfMonth = new Date(parseInt(year), parseInt(month) + 1, 0, 23, 59, 59);
+    const startOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month), 1));
+    const endOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month) + 1, 0, 23, 59, 59));
     
     const bookings = await Booking.find({
       room: roomId,
@@ -243,18 +253,59 @@ exports.getRoomBookedDates = async (req, res) => {
       const checkIn = new Date(booking.checkInDate);
       const checkOut = new Date(booking.checkOutDate);
       
-      if (checkIn.getMonth() === parseInt(month) && checkIn.getFullYear() === parseInt(year)) {
-        const checkInStr = checkIn.toISOString().split('T')[0];
+      if (checkIn.getUTCMonth() === parseInt(month) && checkIn.getUTCFullYear() === parseInt(year)) {
+        const checkInStr = formatUTCDate(checkIn);
         if (!occupiedDates.includes(checkInStr)) {
           occupiedDates.push(checkInStr);
         }
       }
       
-      if (checkOut.getMonth() === parseInt(month) && checkOut.getFullYear() === parseInt(year)) {
-        const checkOutStr = checkOut.toISOString().split('T')[0];
+      if (checkOut.getUTCMonth() === parseInt(month) && checkOut.getUTCFullYear() === parseInt(year)) {
+        const checkOutStr = formatUTCDate(checkOut);
         if (!occupiedDates.includes(checkOutStr)) {
           occupiedDates.push(checkOutStr);
         }
+      }
+    });
+
+    res.json({
+      success: true,
+      count: occupiedDates.length,
+      data: occupiedDates
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Get booked dates for a specific hotel (ALL ROOMS COMBINED)
+// @route   GET /api/bookings/hotel/:hotelId/dates
+// @access  Public
+exports.getHotelBookedDates = async (req, res) => {
+  try {
+    const { hotelId } = req.params;
+
+    const bookings = await Booking.find({
+      hotel: hotelId,
+      status: { $nin: ['cancelled'] }
+    });
+
+    const occupiedDates = [];
+
+    bookings.forEach(booking => {
+      const checkIn = new Date(booking.checkInDate);
+      const checkOut = new Date(booking.checkOutDate);
+
+      // FIX: Use formatUTCDate instead of toISOString()
+      const checkInStr = formatUTCDate(checkIn);
+      const checkOutStr = formatUTCDate(checkOut);
+
+      if (!occupiedDates.includes(checkInStr)) {
+        occupiedDates.push(checkInStr);
+      }
+
+      if (!occupiedDates.includes(checkOutStr)) {
+        occupiedDates.push(checkOutStr);
       }
     });
 

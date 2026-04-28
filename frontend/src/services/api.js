@@ -1,17 +1,25 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5001/api',  // Changed from 5000 to 5001
+  baseURL: 'http://localhost:5001/api',
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
-// Add token to requests if user is logged in
 api.interceptors.request.use((config) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (user && user.token) {
-    config.headers.Authorization = `Bearer ${user.token}`;
+  // Try multiple possible token locations
+  let token = localStorage.getItem('token');
+  
+  if (!token) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    token = user.token || user.accessToken;
+  }
+  
+  console.log('Sending token:', token ? 'yes' : 'no'); // Debug
+  
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

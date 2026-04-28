@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, } from 'react';
 import { 
   Diamond, Search, Calendar, Users, MapPin, Star, 
   LogOut, Home, BookOpen, Heart, User, Filter,
@@ -9,9 +9,94 @@ import {
 } from 'lucide-react';
 import { getHotels, deleteHotel, toggleFavorite, getMyFavorites, addReview } from './services/hotelService';
 import { getHotelRooms } from './services/roomService';
-import { createBooking, getMyBookings, cancelBooking, deleteBooking, getRoomBookedDates } from './services/bookingService';
+import { createBooking, getMyBookings, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates } from './services/bookingService';
 import api from './services/api';
 import authService from './services/authService';
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import axios from "axios";
+import BookingReceipts from './components/BookingReceipts';
+
+// StripePayment
+const stripePromise = loadStripe("pk_test_51TLcTACNevQjxpY3ADVTELinkSwuxkK1eORQKnYzO0KKUBOJvLvDyEgR1PTxx9aaEY3Zc9aJgFM3UZbZ82A8WVah00yJO5SG2x");
+
+
+const StripePaymentForm = ({ amount, room, checkIn, checkOut, onSuccess, onError }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handlePay = async () => {
+    try {
+      if (!stripe || !elements) return;
+
+      // 1. Check availability first
+      try {
+        const checkResponse = await api.post('/bookings/check-availability', {
+          room: room._id,
+          checkInDate: checkIn,
+          checkOutDate: checkOut
+        });
+
+        if (!checkResponse.data.available) {
+          onError('This room was just booked by someone else. Please select different dates.');
+          return;
+        }
+      } catch (checkErr) {
+        console.log("Availability check failed:", checkErr);
+      }
+
+      // 2. Create PaymentIntent
+      const { data } = await api.post("/payments/create-intent", { amount });
+      const clientSecret = data.clientSecret;
+
+      // 3. Confirm Payment
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: elements.getElement(CardElement) },
+      });
+
+      if (result.error) {
+        onError(result.error.message);
+        return;
+      }
+
+      if (result.paymentIntent.status === "succeeded") {
+        onSuccess(result.paymentIntent);
+      }
+
+    } catch (err) {
+      console.error(err);
+      onError(err.response?.data?.message || err.message);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-white/5 rounded-xl border border-white/10">
+      <p className="text-sm text-gray-400 mb-2">Card Payment</p>
+      <div className="p-3 bg-white/10 rounded-lg">
+        <CardElement options={{
+          style: {
+            base: {
+              color: '#fff',
+              fontSize: '16px',
+              '::placeholder': { color: '#9ca3af' }
+            },
+            invalid: {
+              color: '#ef4444',
+              iconColor: '#ef4444'
+            }
+          }
+        }} />
+      </div>
+      <button
+        onClick={handlePay}
+        disabled={!stripe}
+        className="w-full mt-3 py-2 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg font-medium disabled:opacity-50"
+      >
+        Pay ₱{amount}
+      </button>
+    </div>
+  );
+};
 
 // STAR RATING COMPONENT
 const StarRating = ({ rating, maxStars = 5, size = "sm", interactive = false, onRate }) => {
@@ -49,79 +134,147 @@ const StarRating = ({ rating, maxStars = 5, size = "sm", interactive = false, on
 };
 
 // CUSTOM DATE PICKER
-const CustomDatePicker = ({ label, value, onChange, min, icon: Icon, bookedDates = [], currentMonth }) => {
+const CustomDatePicker = ({
+  label,
+  value,
+  onChange,
+  min,
+  icon: Icon,
+  bookedDates = [],
+  currentMonth
+}) => {
   const [isOpen, setIsOpen] = useState(false);
+
   const [displayMonth, setDisplayMonth] = useState(() => {
-    const minDate = min ? new Date(min) : new Date();
+    const minDate = min ? new Date(min + "T00:00:00") : new Date();
     return new Date(minDate.getFullYear(), minDate.getMonth(), 1);
   });
 
   useEffect(() => {
     if (currentMonth) {
-      setDisplayMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+      setDisplayMonth(
+        new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
+      );
     }
   }, [currentMonth]);
 
+  // ========================
+  // GET DAYS IN MONTH
+  // ========================
   const getDaysInMonth = (year, month) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
+
     const daysInMonth = lastDay.getDate();
     const startingDay = firstDay.getDay();
+
     const days = [];
+
     for (let i = 0; i < startingDay; i++) days.push(null);
     for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
     return days;
   };
 
+  // ========================
+  // FORMAT DISPLAY
+  // ========================
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('en-GB', {
+
+    const [y, m, d] = dateStr.split('-');
+    const date = new Date(y, m - 1, d);
+
+    return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric',
+      year: 'numeric'
     });
   };
 
+  // ========================
+  // MIN DATE CHECK (SAFE)
+  // ========================
   const isDateDisabled = (day) => {
     if (!day) return true;
-    const date = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day);
-    const minDate = min ? new Date(min) : new Date();
+
+    const [minY, minM, minD] = (min || '1900-01-01').split('-');
+    const minDate = new Date(minY, minM - 1, minD);
+
+    const date = new Date(
+      displayMonth.getFullYear(),
+      displayMonth.getMonth(),
+      day
+    );
+
     minDate.setHours(0, 0, 0, 0);
     date.setHours(0, 0, 0, 0);
+
     return date < minDate;
   };
 
+  // ========================
+  // BOOKED DATE CHECK (FIXED - NO ISO)
+  // ========================
   const isOccupied = (day) => {
     if (!day) return false;
-    const dateStr = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day)
-      .toISOString().split('T')[0];
+
+    const year = displayMonth.getFullYear();
+    const month = String(displayMonth.getMonth() + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+
+    const dateStr = `${year}-${month}-${d}`;
+
     return bookedDates.includes(dateStr);
   };
 
+  // ========================
+  // SELECTED CHECK (FIXED)
+  // ========================
   const isSelected = (day) => {
     if (!day || !value) return false;
-    const selected = new Date(value);
-    selected.setHours(0, 0, 0, 0);
-    const checkDate = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day);
-    checkDate.setHours(0, 0, 0, 0);
-    return selected.getTime() === checkDate.getTime();
+
+    const year = displayMonth.getFullYear();
+    const month = String(displayMonth.getMonth() + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+
+    const dateStr = `${year}-${month}-${d}`;
+
+    return value === dateStr;
   };
 
+  // ========================
+  // SELECT DATE (NO TIMEZONE BUG)
+  // ========================
   const selectDate = (day) => {
     if (!day || isDateDisabled(day) || isOccupied(day)) return;
-    const date = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day);
-    const dateString = date.toISOString().split('T')[0];
+
+    const year = displayMonth.getFullYear();
+    const month = String(displayMonth.getMonth() + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+
+    const dateString = `${year}-${month}-${d}`;
+
     onChange(dateString);
     setIsOpen(false);
   };
 
-  const days = getDaysInMonth(displayMonth.getFullYear(), displayMonth.getMonth());
-  const monthNames = ["January","February","March","April","May","June",
-    "July","August","September","October","November","December"];
+  const days = getDaysInMonth(
+    displayMonth.getFullYear(),
+    displayMonth.getMonth()
+  );
+
+  const monthNames = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
 
   return (
     <div className="relative">
-      <label className="block text-xs text-gray-500 uppercase mb-1 ml-1">{label}</label>
+      <label className="block text-xs text-gray-500 uppercase mb-1 ml-1">
+        {label}
+      </label>
+
       <button
         type="button"
         onClick={() => setIsOpen(true)}
@@ -132,81 +285,104 @@ const CustomDatePicker = ({ label, value, onChange, min, icon: Icon, bookedDates
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setIsOpen(false)}>
-          <div className="bg-slate-900 w-[380px] rounded-2xl border border-white/10 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="bg-slate-900 w-[380px] rounded-2xl border border-white/10 p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* HEADER */}
             <div className="flex justify-between items-center mb-4">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1));
-                }} 
+              <button
+                onClick={() =>
+                  setDisplayMonth(
+                    new Date(
+                      displayMonth.getFullYear(),
+                      displayMonth.getMonth() - 1,
+                      1
+                    )
+                  )
+                }
                 className="p-2 rounded-lg hover:bg-white/10 text-white"
               >
-                <ChevronRight className="w-5 h-5 rotate-180" />
+                ‹
               </button>
-              <h2 className="text-white font-semibold">{monthNames[displayMonth.getMonth()]} {displayMonth.getFullYear()}</h2>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1));
-                }} 
+
+              <h2 className="text-white font-semibold">
+                {monthNames[displayMonth.getMonth()]} {displayMonth.getFullYear()}
+              </h2>
+
+              <button
+                onClick={() =>
+                  setDisplayMonth(
+                    new Date(
+                      displayMonth.getFullYear(),
+                      displayMonth.getMonth() + 1,
+                      1
+                    )
+                  )
+                }
                 className="p-2 rounded-lg hover:bg-white/10 text-white"
               >
-                <ChevronRight className="w-5 h-5" />
+                ›
               </button>
             </div>
-            
+
+            {/* LEGEND */}
             <div className="flex items-center gap-4 mb-3 text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <span className="text-gray-400">Available</span>
               </div>
+
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <span className="text-gray-400">Occupied</span>
               </div>
+
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
                 <span className="text-gray-400">Selected</span>
               </div>
             </div>
 
+            {/* DAYS */}
             <div className="grid grid-cols-7 text-center text-gray-400 text-xs mb-2">
-              {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => <div key={d}>{d}</div>)}
+              {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
+                <div key={d}>{d}</div>
+              ))}
             </div>
+
             <div className="grid grid-cols-7 gap-1">
-              {days.map((day, idx) => day ? (
-                <button
-                  key={idx}
-                  disabled={isDateDisabled(day) || isOccupied(day)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    selectDate(day);
-                  }}
-                  className={`h-10 rounded-lg text-sm transition-all relative ${
-                    isSelected(day) 
-                      ? 'bg-cyan-500 text-white' 
-                      : isOccupied(day)
-                        ? 'bg-red-500/20 text-red-400 cursor-not-allowed border border-red-500/50'
-                        : isDateDisabled(day) 
+              {days.map((day, idx) =>
+                day ? (
+                  <button
+                    key={idx}
+                    disabled={isDateDisabled(day) || isOccupied(day)}
+                    onClick={() => selectDate(day)}
+                    className={`h-10 rounded-lg text-sm transition-all relative
+                      ${
+                        isSelected(day)
+                          ? 'bg-cyan-500 text-white'
+                          : isOccupied(day)
+                          ? 'bg-red-500/20 text-red-400 cursor-not-allowed'
+                          : isDateDisabled(day)
                           ? 'text-gray-600 cursor-not-allowed'
-                          : 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
-                  }`}
-                >
-                  {day}
-                  {!isSelected(day) && !isDateDisabled(day) && (
-                    <div className={`absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
-                      isOccupied(day) ? 'bg-red-500' : 'bg-green-500'
-                    }`}></div>
-                  )}
-                </button>
-              ) : <div key={idx} />)}
+                          : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                      }`}
+                  >
+                    {day}
+                  </button>
+                ) : (
+                  <div key={idx} />
+                )
+              )}
             </div>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen(false);
-              }} 
+
+            <button
+              onClick={() => setIsOpen(false)}
               className="w-full mt-4 py-2 bg-white/10 rounded-lg text-white hover:bg-white/20"
             >
               Close
@@ -390,6 +566,9 @@ const Dashboard = ({ user, onLogout }) => {
   const [reviewModal, setReviewModal] = useState({ isOpen: false, hotel: null });
   const [reviewsModal, setReviewsModal] = useState({ isOpen: false, hotel: null });
   
+  const [receiptData, setReceiptData] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+
   const [alertModal, setAlertModal] = useState({
     isOpen: false,
     title: '',
@@ -497,6 +676,7 @@ const Dashboard = ({ user, onLogout }) => {
             try {
               const roomsRes = await getHotelRooms(hotel._id);
               const hotelRooms = roomsRes.success ? roomsRes.data : [];
+              const bookedRes = await getHotelBookedDates(hotel._id);
               const maxCapacity = calculateHotelMaxCapacity(hotelRooms);
               
               return {
@@ -512,7 +692,8 @@ const Dashboard = ({ user, onLogout }) => {
                 maxGuests: maxCapacity || hotel.maxGuests || 4, // Use calculated capacity or fallback
                 roomTypes: [...new Set(hotelRooms.map(r => r.type))] || ['Standard', 'Deluxe', 'Suite'],
                 reviews: hotel.reviews || [],
-                rooms: hotelRooms // Store rooms for filtering
+                rooms: hotelRooms, // Store rooms for filtering
+                bookedDates: bookedRes.success ? bookedRes.data : []
               };
             } catch (err) {
               // Fallback if rooms fetch fails
@@ -529,7 +710,8 @@ const Dashboard = ({ user, onLogout }) => {
                 maxGuests: hotel.maxGuests || 4,
                 roomTypes: ['Standard', 'Deluxe', 'Suite'],
                 reviews: hotel.reviews || [],
-                rooms: []
+                rooms: [],
+                bookedDates: []
               };
             }
           })
@@ -923,26 +1105,46 @@ const Dashboard = ({ user, onLogout }) => {
   const closeAlertModal = () => {
     setAlertModal(prev => ({ ...prev, isOpen: false }));
   };
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  const formatDateLong = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
-
-  const today = new Date().toISOString().split('T')[0];
+const formatDateLong = (dateString) => {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+};
+// ✅ FIXED "today"
+const now = new Date();
+const today = new Date(
+  now.getFullYear(),
+  now.getMonth(),
+  now.getDate()
+).toISOString().split('T')[0];
 
   const Sidebar = () => (
     <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-8 cursor-pointer" onClick={() => setActiveTab('browse')}>
         <Diamond className="w-8 h-8 text-cyan-400" />
-        <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">AI'STAY</span>
+        <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">AI STAY</span>
       </div>
       <nav className="space-y-2 flex-1">
         <SidebarItem icon={Home} label="Browse Hotels" active={activeTab === 'browse'} onClick={() => setActiveTab('browse')} />
@@ -1035,7 +1237,7 @@ const Dashboard = ({ user, onLogout }) => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-2xl font-bold text-cyan-400">${booking.totalPrice}</span>
+                        <span className="text-2xl font-bold text-cyan-400">₱{booking.totalPrice}</span>
                         <p className="text-gray-500 text-xs">total</p>
                       </div>
                     </div>
@@ -1068,7 +1270,7 @@ const Dashboard = ({ user, onLogout }) => {
                           <Moon className="w-3 h-3" /> Nights
                         </p>
                         <p className="font-medium text-sm">{nights} night{nights !== 1 ? 's' : ''}</p>
-                        <p className="text-xs text-gray-400">${pricePerNight}/night</p>
+                        <p className="text-xs text-gray-400">₱{pricePerNight}/night</p>
                       </div>
                     </div>
 
@@ -1150,7 +1352,9 @@ const Dashboard = ({ user, onLogout }) => {
                   description: hotel.description,
                   maxGuests: maxCap,
                   roomTypes: ['Standard', 'Deluxe', 'Suite'],
-                  reviews: hotel.reviews || []
+                  reviews: hotel.reviews || [],
+                  bookedDates: hotel.bookedDates || []
+                 
                 }} 
                 onBookNow={handleBookNow}
                 isHovered={hoveredHotel === hotel._id}
@@ -1164,272 +1368,308 @@ const Dashboard = ({ user, onLogout }) => {
     </div>
   );
 
+  
   const BookingModal = () => {
-    if (!selectedHotel) return null;
-    
-    const calculatedTotal = selectedRoom && numberOfNights > 0 ? selectedRoom.pricePerNight * numberOfNights : 0;
-    
-    const canSelectRoom = (room) => room.capacity >= selectedGuests;
-    
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-        <div className="bg-slate-900 rounded-3xl p-8 max-w-2xl w-full border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
-          {bookingSuccess ? (
-            <div className="text-center py-8">
-              <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="w-10 h-10 text-green-400" />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">Booking Confirmed!</h3>
-              <p className="text-gray-400">Your reservation is confirmed.</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-2xl font-bold">
-                    {bookingStep === 'rooms' ? 'Select Room' : 'Select Dates'}
-                  </h3>
-                  <p className="text-gray-400 text-sm mt-1">{selectedHotel.name}</p>
-                </div>
-                <button onClick={() => {setSelectedHotel(null); setSelectedRoom(null); setBookingStep('rooms'); setBookedDates([]);}} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl mb-6">
-                <img src={selectedHotel.image} alt={selectedHotel.name} className="w-24 h-24 rounded-lg object-cover" />
-                <div className="flex-1">
-                  <h4 className="font-bold text-lg">{selectedHotel.name}</h4>
-                  <p className="text-gray-400 text-sm flex items-center gap-1">
-                    <MapPin className="w-4 h-4" /> {selectedHotel.location}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <StarRating rating={Math.round(selectedHotel.rating)} size="sm" />
-                    <span className="font-bold">{selectedHotel.rating}</span>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-gray-400 text-sm">{selectedGuests} guests</span>
-                  </div>
-                </div>
-              </div>
+  if (!selectedHotel) return null;
 
-              {/* Show existing reviews in booking modal */}
-              {selectedHotel.reviews && selectedHotel.reviews.length > 0 && (
-                <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-sm flex items-center gap-2">
-                      <Star className="w-4 h-4 text-yellow-400" />
-                      Guest Reviews ({selectedHotel.reviews.length})
-                    </h4>
-                    <button 
-                      onClick={() => setReviewsModal({ isOpen: true, hotel: selectedHotel })}
-                      className="text-xs text-cyan-400 hover:text-cyan-300"
-                    >
-                      View all
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {selectedHotel.reviews.slice(0, 2).map((review, idx) => (
-                      <div key={idx} className="text-sm text-gray-400 border-l-2 border-yellow-500/30 pl-3">
-                        <p className="italic">"{review.comment}"</p>
-                        <p className="text-xs text-gray-500 mt-1">— {review.user?.name || 'Guest'}, {review.rating}★</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+  const calculatedTotal =
+    selectedRoom && numberOfNights > 0
+      ? selectedRoom.pricePerNight * numberOfNights
+      : 0;
 
-              {bookingStep === 'rooms' ? (
-                <div className="mb-6">
-                  <h4 className="font-bold mb-4 flex items-center gap-2">
-                    <Bed className="w-5 h-5 text-cyan-400" />
-                    Available Rooms
-                    <span className="text-xs font-normal text-gray-400 ml-2">
-                      (for {selectedGuests} guests)
-                    </span>
-                  </h4>
-                  {loading ? (
-                    <div className="flex justify-center p-8">
-                      <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-                    </div>
-                  ) : rooms.length === 0 ? (
-                    <div className="text-center py-8 bg-red-500/10 border border-red-500/30 rounded-xl">
-                      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-                      <p className="text-red-400 font-medium">No rooms available</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {rooms.map((room) => {
-                        const isSelectable = canSelectRoom(room);
-                        
-                        return (
-                          <div 
-                            key={room._id}
-                            onClick={() => isSelectable && handleSelectRoom(room)}
-                            className={`p-4 rounded-xl border transition-all ${
-                              isSelectable
-                                ? 'border-white/10 hover:border-cyan-500/50 cursor-pointer hover:bg-white/5'
-                                : 'border-red-500/30 bg-red-500/5 cursor-not-allowed opacity-60'
-                            }`}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h5 className={`font-bold capitalize ${!isSelectable ? 'text-gray-500' : ''}`}>
-                                  {room.type} Room #{room.roomNumber}
-                                  {!isSelectable && (
-                                    <span className="ml-2 text-xs text-red-400 font-normal">
-                                      (Cannot accommodate {selectedGuests} guests)
-                                    </span>
-                                  )}
-                                </h5>
-                                <p className={`text-sm ${isSelectable ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {room.description}
-                                </p>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {room.amenities?.map((amenity, idx) => (
-                                    <span key={idx} className={`px-2 py-1 rounded text-xs ${
-                                      isSelectable ? 'bg-white/5 text-gray-300' : 'bg-white/5 text-gray-600'
-                                    }`}>
-                                      {amenity}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <span className={`text-xl font-bold ${isSelectable ? 'text-cyan-400' : 'text-gray-600'}`}>
-                                  ${room.pricePerNight}
-                                </span>
-                                <p className="text-gray-500 text-xs">/night</p>
-                                <p className={`text-sm mt-1 ${
-                                  room.capacity >= selectedGuests ? 'text-green-400' : 'text-red-400'
-                                }`}>
-                                  Max {room.capacity} guest{room.capacity !== 1 ? 's' : ''}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <button 
-                      onClick={handleBackToRooms}
-                      className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-                    >
-                      <ChevronRight className="w-4 h-4 rotate-180" /> Back to rooms
-                    </button>
-                  </div>
+  const canSelectRoom = (room) => room.capacity >= selectedGuests;
 
-                  <div className="p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-xl mb-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-400">Selected Room</p>
-                        <p className="font-bold text-cyan-400 capitalize">{selectedRoom.type} #{selectedRoom.roomNumber}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-400">Price per night</p>
-                        <p className="font-bold text-cyan-400">${selectedRoom.pricePerNight}</p>
-                      </div>
-                    </div>
-                  </div>
+  const isReadyToPay =
+    selectedRoom &&
+    modalCheckIn &&
+    modalCheckOut &&
+    numberOfNights > 0 &&
+    calculatedTotal > 0;
 
-                  <h4 className="font-bold mb-4 flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-cyan-400" />
-                    Select Your Stay Dates
-                  </h4>
-                  
-                  <div className="grid md:grid-cols-2 gap-4 mb-6">
-                    <CustomDatePicker 
-                      label="Check In"
-                      value={modalCheckIn}
-                      onChange={(date) => {
-                        setModalCheckIn(date);
-                        if (modalCheckOut && new Date(modalCheckOut) <= new Date(date)) {
-                          setModalCheckOut('');
-                        }
-                      }}
-                      min={today}
-                      icon={Calendar}
-                      bookedDates={bookedDates}
-                      currentMonth={calendarMonth}
-                    />
+  const handlePaymentSuccess = async (paymentIntent) => {
+    try {
+      console.log("Payment success:", paymentIntent.id);
 
-                    <CustomDatePicker 
-                      label="Check Out"
-                      value={modalCheckOut}
-                      onChange={setModalCheckOut}
-                      min={modalCheckIn || today}
-                      icon={Calendar}
-                      bookedDates={bookedDates}
-                      currentMonth={calendarMonth}
-                    />
-                  </div>
+      const bookingPayload = {
+        hotel: selectedHotel.id,
+        room: selectedRoom._id,
+        checkInDate: modalCheckIn,
+        checkOutDate: modalCheckOut,
+        guests: selectedGuests,
+        totalPrice: calculatedTotal,
+        paymentIntentId: paymentIntent.id,
+      };
 
-                  {numberOfNights > 0 && (
-                    <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Duration</span>
-                        <span className="font-medium text-cyan-400">{numberOfNights} night{numberOfNights !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Check-in</span>
-                        <span className="font-medium">{formatDateLong(modalCheckIn)}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400">Check-out</span>
-                        <span className="font-medium">{formatDateLong(modalCheckOut)}</span>
-                      </div>
-                      <div className="border-t border-white/10 pt-2 mt-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-400">Total Price</span>
-                          <span className="text-2xl font-bold text-cyan-400">${calculatedTotal}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 text-right mt-1">
-                          ${selectedRoom.pricePerNight} × {numberOfNights} nights
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+      const response = await api.post('/bookings', bookingPayload);
 
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => {setSelectedHotel(null); setSelectedRoom(null); setBookingStep('rooms'); setBookedDates([]);}}
-                  className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition-colors"
-                >
-                  Cancel
-                </button>
-                {bookingStep === 'dates' && (
-                  <button 
-                    onClick={handleCheckAvailability}
-                    disabled={!modalCheckIn || !modalCheckOut || loading || numberOfNights <= 0}
-                    className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Checking...' : numberOfNights > 0 ? `Book for $${calculatedTotal}` : 'Select Dates'}
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    );
+      if (response.data.success) {
+        // Build receipt data
+        setReceiptData({
+          ...response.data.data,
+          hotel: {
+            name: selectedHotel.name,
+            location: selectedHotel.location,
+            image: selectedHotel.image,
+            rating: selectedHotel.rating,
+          },
+          room: {
+            type: selectedRoom.type,
+            roomNumber: selectedRoom.roomNumber,
+          },
+          checkInDate: modalCheckIn,
+          checkOutDate: modalCheckOut,
+          guests: selectedGuests,
+          totalPrice: calculatedTotal,
+          paymentIntentId: paymentIntent.id,
+        });
+        
+        setShowReceipt(true);
+      }
+    } catch (err) {
+      console.error("Booking creation error:", err.response?.data || err.message);
+      setAlertModal({
+        isOpen: true,
+        title: 'Critical Error',
+        message: 'Payment was successful but we could not create your booking. Please contact support immediately with your payment reference: ' + paymentIntent.id,
+        type: 'error'
+      });
+    }
   };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-slate-900 rounded-3xl p-8 max-w-2xl w-full border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
+
+        {bookingSuccess ? (
+          <div className="text-center py-8">
+            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-10 h-10 text-green-400" />
+            </div>
+            <h3 className="text-2xl font-bold mb-2">Booking Confirmed!</h3>
+            <p className="text-gray-400">Your payment and reservation are complete.</p>
+          </div>
+        ) : (
+          <>
+            {/* HEADER */}
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-2xl font-bold">
+                  {bookingStep === "rooms" ? "Select Room" : "Select Dates & Pay"}
+                </h3>
+                <p className="text-gray-400 text-sm mt-1">{selectedHotel.name}</p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setSelectedHotel(null);
+                  setSelectedRoom(null);
+                  setBookingStep("rooms");
+                  setBookedDates([]);
+                }}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* HOTEL INFO */}
+            <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl mb-6">
+              <img
+                src={selectedHotel.image}
+                alt={selectedHotel.name}
+                className="w-24 h-24 rounded-lg object-cover"
+              />
+              <div className="flex-1">
+                <h4 className="font-bold text-lg">{selectedHotel.name}</h4>
+                <p className="text-gray-400 text-sm flex items-center gap-1">
+                  <MapPin className="w-4 h-4" /> {selectedHotel.location}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <StarRating rating={Math.round(selectedHotel.rating)} size="sm" />
+                  <span className="font-bold">{selectedHotel.rating}</span>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-gray-400 text-sm">{selectedGuests} guests</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ROOMS */}
+            {bookingStep === "rooms" ? (
+              <div className="mb-6">
+                <h4 className="font-bold mb-4 flex items-center gap-2">
+                  <Bed className="w-5 h-5 text-cyan-400" />
+                  Available Rooms
+                </h4>
+
+                <div className="space-y-3">
+                  {rooms.map((room) => {
+                    const isSelectable = canSelectRoom(room);
+
+                    return (
+                      <div
+                        key={room._id}
+                        onClick={() => isSelectable && handleSelectRoom(room)}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                          isSelectable
+                            ? "border-white/10 hover:border-cyan-500/50 hover:bg-white/5"
+                            : "border-red-500/30 bg-red-500/5 opacity-50 cursor-not-allowed"
+                        }`}
+                      >
+                        <div className="flex justify-between">
+                          <div>
+                            <h5 className="font-bold capitalize">{room.type}</h5>
+                            <p className="text-sm text-gray-400">{room.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">Capacity: {room.capacity} persons</p>
+                          </div>
+                          <span className="text-cyan-400 font-bold">
+                            ₱{room.pricePerNight}<span className="text-gray-500 text-xs font-normal">/night</span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* DATES */}
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <CustomDatePicker
+                    label="Check In"
+                    value={modalCheckIn}
+                    onChange={(date) => {
+                      setModalCheckIn(date);
+                      if (modalCheckOut && modalCheckOut <= date) {
+                        setModalCheckOut("");
+                      }
+                    }}
+                    min={today}
+                    icon={Calendar}
+                    bookedDates={bookedDates}
+                    currentMonth={calendarMonth}
+                  />
+
+                  <CustomDatePicker
+                    label="Check Out"
+                    value={modalCheckOut}
+                    onChange={setModalCheckOut}
+                    min={modalCheckIn || today}
+                    icon={Calendar}
+                    bookedDates={bookedDates}
+                    currentMonth={calendarMonth}
+                  />
+                </div>
+
+                {/* DATE VALIDATION ERRORS */}
+                {modalCheckIn && modalCheckOut && numberOfNights <= 0 && (
+                  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <p className="text-red-400 text-sm">Check-out must be after check-in</p>
+                  </div>
+                )}
+
+                {/* TOTAL */}
+                {numberOfNights > 0 && (
+                  <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-400">{selectedRoom.type} Room</span>
+                      <span className="text-white">₱{selectedRoom.pricePerNight} × {numberOfNights} nights</span>
+                    </div>
+                    <div className="border-t border-white/10 pt-2 flex justify-between items-center">
+                      <span className="text-gray-400 font-medium">Total Price</span>
+                      <span className="text-2xl font-bold text-cyan-400">
+                        ₱{calculatedTotal}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleBackToRooms}
+                  className="mb-4 text-sm text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
+                >
+                  ← Back to rooms
+                </button>
+                
+                {/* STRIPE PAYMENT */}
+                {isReadyToPay && (
+                  <div className="mb-6">
+                    <Elements stripe={stripePromise}>
+  <StripePaymentForm
+    amount={calculatedTotal}
+    room={selectedRoom}
+    checkIn={modalCheckIn}
+    checkOut={modalCheckOut}
+    onSuccess={handlePaymentSuccess}
+    onError={(message) => {
+      setAlertModal({
+        isOpen: true,
+        title: 'Payment Error',
+        message: message,
+        type: 'error'
+      });
+    }}
+  />
+</Elements>
+                  </div>
+                )}
+
+                {!isReadyToPay && (
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                    <p className="text-gray-400 text-sm">Select check-in and check-out dates to proceed with payment</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* BUTTONS */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedHotel(null);
+                  setSelectedRoom(null);
+                  setBookingStep("rooms");
+                  setBookedDates([]);
+                }}
+                className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* RECEIPT MODAL - OUTSIDE the inner div so it overlays everything */}
+      {showReceipt && receiptData && (
+        <BookingReceipts
+          booking={receiptData}
+          onClose={() => {
+            setShowReceipt(false);
+            setReceiptData(null);
+            setSelectedHotel(null);
+            setSelectedRoom(null);
+            setBookingStep('rooms');
+            setModalCheckIn('');
+            setModalCheckOut('');
+            setBookedDates([]);
+            setActiveTab('bookings');
+          }}
+        />
+      )}
+    </div>
+  );
+};
 
   const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave }) => {
     const isFav = favoriteIds.has(hotel.id);
     
     return (
       <div 
-        className="group bg-slate-900/50 rounded-2xl overflow-hidden border border-white/10 hover:border-cyan-500/50 transition-all duration-500 hover:shadow-xl hover:shadow-cyan-500/10 relative"
+        className="group bg-slate-900/50 rounded-2xl overflow-visible border border-white/10 hover:border-cyan-500/50 transition-all duration-500 hover:shadow-xl hover:shadow-cyan-500/10 relative"
         onMouseEnter={onHover}
         onMouseLeave={onLeave}
       >
-        <div className="relative h-48 overflow-hidden">
+        <div className="relative h-48 overflow-hidden z-0">
           <img src={hotel.image} alt={hotel.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           
           <button
@@ -1496,6 +1736,34 @@ const Dashboard = ({ user, onLogout }) => {
               </span>
             ))}
           </div>
+
+          {hotel.bookedDates && hotel.bookedDates.length > 0 && (
+  <div className="mb-3 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+    <div className="flex items-center gap-1 mb-1">
+      <Calendar className="w-3 h-3 text-red-400" />
+      <span className="text-xs text-red-300">Booked Dates:</span>
+    </div>
+
+    <div className="flex flex-wrap gap-1">
+      {hotel.bookedDates.slice(0, 5).map((date, idx) => {
+    const d = new Date(date);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
+    return (
+        <span key={idx} className="text-[10px] px-2 py-1 bg-red-500/20 text-red-300 rounded">
+            {day} {month}
+        </span>
+    );
+})}
+    </div>
+
+    {hotel.bookedDates.length > 5 && (
+      <p className="text-[10px] text-gray-400 mt-1">
+        +{hotel.bookedDates.length - 5} more
+      </p>
+    )}
+  </div>
+)}
           
           {/* Show recent reviews preview */}
           {hotel.reviews && hotel.reviews.length > 0 && (
@@ -1524,7 +1792,7 @@ const Dashboard = ({ user, onLogout }) => {
           
           <div className="flex justify-between items-center pt-4 border-t border-white/10">
             <div>
-              <span className="text-2xl font-bold text-cyan-400">${hotel.price}</span>
+              <span className="text-2xl font-bold text-cyan-400">₱{hotel.price}</span>
               <span className="text-gray-500 text-sm">/night</span>
             </div>
             
@@ -1555,7 +1823,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   const BrowseHotels = () => (
     <div className="space-y-6">
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-4 border border-white/10">
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-4 border border-white/10 overflow-visible">
         <div className="grid md:grid-cols-3 gap-4">
           <div className="md:col-span-2 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -1570,7 +1838,7 @@ const Dashboard = ({ user, onLogout }) => {
             />
           </div>
 
-          <div className="relative">
+          <div className="relative z-[100]">
             <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1 ml-1">Guests</label>
             <div className="relative">
               <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400 pointer-events-none" />
@@ -1584,7 +1852,7 @@ const Dashboard = ({ user, onLogout }) => {
               </button>
               
               {showGuestDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-white/10 rounded-xl overflow-hidden shadow-xl max-h-60 overflow-y-auto z-50">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-white/10 rounded-xl shadow-xl max-h-60 overflow-y-auto z-[9999]">
                   {guestOptions.map(num => (
                     <button
                       key={num}

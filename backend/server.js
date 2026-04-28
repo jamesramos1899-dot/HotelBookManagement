@@ -14,6 +14,8 @@ const authRoutes = require('./Routes/authRoutes');
 const hotelRoutes = require('./Routes/hotelRoutes');
 const roomRoutes = require('./Routes/roomRoutes');
 const bookingRoutes = require('./Routes/bookingRoutes');
+const paymentRoutes = require('./Routes/paymentRoutes');
+
 
 const app = express();
 
@@ -31,6 +33,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/hotels', hotelRoutes);
 app.use('/api/rooms', roomRoutes); // Keep this for general room operations
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

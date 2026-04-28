@@ -509,7 +509,7 @@ const RoomModal = ({
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Price per Night ($)</label>
+              <label className="block text-sm text-gray-400 mb-2">Price per Night (₱)</label>
               <input
                 type="number"
                 value={localForm.pricePerNight}
@@ -1088,7 +1088,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         <StatCard 
           icon={DollarSign} 
           label="Total Revenue" 
-          value={`$${stats.totalRevenue.toLocaleString()}`} 
+          value={`₱${stats.totalRevenue.toLocaleString()}`} 
           color="green" 
         />
       </div>
@@ -1319,7 +1319,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-lg font-bold capitalize">{room.type} Room #{room.roomNumber}</h3>
-                        <p className="text-cyan-400 text-2xl font-bold">${room.pricePerNight}<span className="text-sm text-gray-400 font-normal">/night</span></p>
+                        <p className="text-cyan-400 text-2xl font-bold">₱{room.pricePerNight}<span className="text-sm text-gray-400 font-normal">/night</span></p>
                       </div>
                       <div className="flex gap-2">
                         <button 
@@ -1418,7 +1418,7 @@ const AdminDashboard = ({ user, onLogout }) => {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-bold capitalize">{room.type} Room #{room.roomNumber}</h3>
-                  <p className="text-cyan-400 text-2xl font-bold">${room.pricePerNight}<span className="text-sm text-gray-400 font-normal">/night</span></p>
+                  <p className="text-cyan-400 text-2xl font-bold">₱{room.pricePerNight}<span className="text-sm text-gray-400 font-normal">/night</span></p>
                 </div>
                 <div className="flex gap-2">
                   <button 
@@ -1504,7 +1504,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                       )}
                     </div>
                     <div className="text-right">
-                      <span className="text-xl font-bold text-cyan-400">${booking.totalPrice}</span>
+                      <span className="text-xl font-bold text-cyan-400">₱{booking.totalPrice}</span>
                       <p className="text-xs text-gray-500">{nights} nights</p>
                     </div>
                   </div>
