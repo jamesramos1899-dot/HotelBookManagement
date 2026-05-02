@@ -3,20 +3,20 @@ const Booking = require('../Models/Booking');
 
 exports.createPaymentIntent = async (req, res) => {
   try {
-    const { amount } = req.body; // From frontend: total price in pesos
+    const { amount, bookingId } = req.body;
 
-    // Validate amount
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: 'Valid amount required' });
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to centavos
+      amount: Math.round(amount * 100),
       currency: 'php',
-      automatic_payment_methods: { enabled: true },
+      // ✅ Remove automatic_payment_methods - it conflicts with manual confirmation
+      payment_method_types: ['card'],
       metadata: {
-        userId: req.user._id.toString()
-        // No bookingId yet - booking created after payment
+        userId: req.user._id.toString(),
+        bookingId: bookingId || null
       }
     });
 
@@ -26,7 +26,7 @@ exports.createPaymentIntent = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
+  } 
 };
 
 exports.createBooking = async (req, res) => {
@@ -54,12 +54,17 @@ exports.confirmPayment = async (req, res) => {
   try {
     const { paymentIntentId, bookingId } = req.body;
 
+    // ✅ Early return if already processed
+    const existingBooking = await Booking.findById(bookingId);
+    if (existingBooking?.paymentStatus === 'paid') {
+      return res.status(200).json({ message: 'Payment already processed', booking: existingBooking });
+    }
+
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status === 'succeeded') {
-      // Only update if not already paid (prevents double updates)
       const updatedBooking = await Booking.findOneAndUpdate(
-        { _id: bookingId, paymentStatus: { $ne: 'paid' } }, // Only if not already paid
+        { _id: bookingId, paymentStatus: { $ne: 'paid' } },
         { paymentStatus: 'paid', paymentId: paymentIntentId, status: 'confirmed' },
         { new: true }
       );

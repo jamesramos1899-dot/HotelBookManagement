@@ -10,6 +10,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import authService from './services/authService';
+import Swal from 'sweetalert2';
 
 const Login = ({ onLogin }) => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -57,32 +58,47 @@ const Login = ({ onLogin }) => {
         });
 
         if (response.success) {
-          setIsSignUp(false);
-          setMessage('Registration successful. Please log in.');
+  Swal.fire({
+    icon: 'success',
+    title: 'Registration Successful',
+    text: 'Please log in to continue.',
+    confirmButtonColor: '#06b6d4'
+  }).then(() => {
+    setIsSignUp(false);
+    setMessage('');
 
-          setFormData({
-            name: '',
-            email: formData.email,
-            phone: '',
-            password: '',
-            confirmPassword: ''
-          });
+    setFormData({
+      name: '',
+      email: formData.email,
+      phone: '',
+      password: '',
+      confirmPassword: ''
+    });
 
-          setShowPassword(false);
-          setShowConfirmPassword(false);
-        } else {
-          setError(response.error || 'Registration failed');
-        }
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  });
 
-      } else {
-        const response = await authService.login({
-          email: formData.email,
-          password: formData.password
-        });
+} else {
+  setError(response.error || 'Registration failed');
+}
+
+} else {
+  const response = await authService.login({
+    email: formData.email,
+    password: formData.password
+  });
 
         if (response.success) {
-          onLogin(response.data);
-        } else {
+  Swal.fire({
+    icon: 'success',
+    title: 'Login Successful',
+    text: 'Welcome back!',
+    confirmButtonColor: '#06b6d4'
+  }).then(() => {
+    onLogin(response.data);
+  });
+} else {
           setError(response.error || 'Login failed');
         }
       }
@@ -110,7 +126,7 @@ const Login = ({ onLogin }) => {
           <div className="flex items-center gap-2">
             <Diamond className="w-10 h-10 text-cyan-400" />
             <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              AI'STAY
+              AI STAY
             </span>
           </div>
         </div>

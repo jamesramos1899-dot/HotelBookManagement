@@ -2,31 +2,41 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext();
 
+const API = "http://localhost:5000/api/auth";
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const stored = localStorage.getItem('user');
+    if (stored) setUser(JSON.parse(stored));
   }, []);
 
   const login = async (email, password) => {
-    // Mock login for now - replace with API call later
-    const mockUser = { _id: '1', name: 'Test User', email, role: 'user' };
-    setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    return { success: true, data: mockUser };
+    const res = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) return data;
+
+    setUser(data.data);
+    localStorage.setItem('user', JSON.stringify(data.data));
+
+    return data;
   };
 
-  const register = async (name, email, password, phone) => {
-    const mockUser = { _id: '1', name, email, role: 'user' };
-    setUser(mockUser);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    return { success: true, data: mockUser };
+  const register = async (formData) => {
+    const res = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+
+    return await res.json();
   };
 
   const logout = () => {
@@ -35,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

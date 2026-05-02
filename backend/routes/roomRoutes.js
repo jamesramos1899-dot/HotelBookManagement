@@ -1,19 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { getRooms, getRoom, createRoom, updateRoom, deleteRoom, getRoomsByHotel } = require('../Controllers/roomController');
+
+const {
+  getRooms,
+  getRoom,
+  createRoom,
+  updateRoom,
+  deleteRoom,
+  getRoomsByHotel,
+  getMyRooms
+} = require('../Controllers/roomController');
+
 const { protect } = require('../Middleware/auth');
 const { adminOnly } = require('../Middleware/admin');
 
-// Public routes
+// ================= PUBLIC ROUTES =================
 router.get('/', getRooms);
 router.get('/:id', getRoom);
 
-// IMPORTANT: This must come BEFORE the /:id route to avoid conflict
+// IMPORTANT: must come before /:id
 router.get('/hotel/:hotelId', getRoomsByHotel);
 
-// Protected admin routes
+// ================= PROTECTED ADMIN ROUTES =================
 router.post('/', protect, adminOnly, createRoom);
 router.put('/:id', protect, adminOnly, updateRoom);
 router.delete('/:id', protect, adminOnly, deleteRoom);
+
+// ================= USER ROUTE =================
+router.get('/my', protect, getMyRooms);
 
 module.exports = router;

@@ -665,12 +665,11 @@ const Dashboard = ({ user, onLogout }) => {
     return Math.max(...hotelRooms.map(room => room.capacity || 0));
   };
 
-  const fetchHotels = async () => {
+ const fetchHotels = async () => {
     try {
       setLoading(true);
       const response = await getHotels();
       if (response.success) {
-        // Fetch rooms for each hotel to calculate actual max capacity
         const hotelsWithRooms = await Promise.all(
           response.data.map(async (hotel) => {
             try {
@@ -678,6 +677,34 @@ const Dashboard = ({ user, onLogout }) => {
               const hotelRooms = roomsRes.success ? roomsRes.data : [];
               const bookedRes = await getHotelBookedDates(hotel._id);
               const maxCapacity = calculateHotelMaxCapacity(hotelRooms);
+              
+              // ✅ FIX: Flatten booking ranges into individual date strings
+              let bookedDatesList = [];
+              if (bookedRes.success && Array.isArray(bookedRes.data)) {
+                bookedRes.data.forEach(booking => {
+                  // Handle both object format {checkIn, checkOut} and string format
+                  const checkIn = booking.checkIn || booking;
+                  const checkOut = booking.checkOut || booking;
+                  
+                  if (checkIn && checkOut) {
+                    const start = new Date(checkIn);
+                    const end = new Date(checkOut);
+                    
+                    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                      // Generate all dates in the range
+                      const current = new Date(start);
+                      while (current <= end) {
+                        const year = current.getFullYear();
+                        const month = String(current.getMonth() + 1).padStart(2, '0');
+                        const day = String(current.getDate()).padStart(2, '0');
+                        bookedDatesList.push(`${year}-${month}-${day}`);
+                        
+                        current.setDate(current.getDate() + 1);
+                      }
+                    }
+                  }
+                });
+              }
               
               return {
                 id: hotel._id,
@@ -689,14 +716,13 @@ const Dashboard = ({ user, onLogout }) => {
                 image: hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
                 amenities: hotel.amenities,
                 description: hotel.description,
-                maxGuests: maxCapacity || hotel.maxGuests || 4, // Use calculated capacity or fallback
+                maxGuests: maxCapacity || hotel.maxGuests || 4,
                 roomTypes: [...new Set(hotelRooms.map(r => r.type))] || ['Standard', 'Deluxe', 'Suite'],
                 reviews: hotel.reviews || [],
-                rooms: hotelRooms, // Store rooms for filtering
-                bookedDates: bookedRes.success ? bookedRes.data : []
+                rooms: hotelRooms,
+                bookedDates: bookedDatesList // ✅ Now contains ["2024-10-22", "2024-10-23", ...]
               };
             } catch (err) {
-              // Fallback if rooms fetch fails
               return {
                 id: hotel._id,
                 name: hotel.name,
@@ -1187,14 +1213,20 @@ const today = new Date(
     </button>
   );
 
-  const MyBookings = () => (
+ const MyBookings = () => {
+  // ✅ Sort bookings: newest first (most recent createdAt)
+  const sortedBookings = [...myBookings].sort((a, b) => 
+    new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
+  return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">My Bookings</h2>
-        <span className="text-gray-400 text-sm">{myBookings.length} booking{myBookings.length !== 1 ? 's' : ''}</span>
+        <span className="text-gray-400 text-sm">{sortedBookings.length} booking{sortedBookings.length !== 1 ? 's' : ''}</span>
       </div>
       
-      {myBookings.length === 0 ? (
+      {sortedBookings.length === 0 ? (
         <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-8 text-center border border-white/10">
           <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400">No bookings yet. Start exploring hotels!</p>
@@ -1204,7 +1236,7 @@ const today = new Date(
         </div>
       ) : (
         <div className="grid gap-4">
-          {myBookings.map((booking) => {
+          {sortedBookings.map((booking) => {
             const nights = Math.ceil((new Date(booking.checkOutDate) - new Date(booking.checkInDate)) / (1000 * 60 * 60 * 24));
             const pricePerNight = Math.round(booking.totalPrice / nights);
             
@@ -1315,7 +1347,7 @@ const today = new Date(
       )}
     </div>
   );
-
+};
   const Favorites = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1737,7 +1769,7 @@ const today = new Date(
             ))}
           </div>
 
-          {hotel.bookedDates && hotel.bookedDates.length > 0 && (
+         {hotel.bookedDates && hotel.bookedDates.length > 0 && (
   <div className="mb-3 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
     <div className="flex items-center gap-1 mb-1">
       <Calendar className="w-3 h-3 text-red-400" />
@@ -1745,16 +1777,19 @@ const today = new Date(
     </div>
 
     <div className="flex flex-wrap gap-1">
-      {hotel.bookedDates.slice(0, 5).map((date, idx) => {
-    const d = new Date(date);
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' });
-    return (
-        <span key={idx} className="text-[10px] px-2 py-1 bg-red-500/20 text-red-300 rounded">
+      {hotel.bookedDates.slice(0, 5).map((dateStr, idx) => {
+        // dateStr is now "YYYY-MM-DD" format
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = dateObj.toLocaleString('en-GB', { month: 'short' });
+        
+        return (
+          <span key={idx} className="text-[10px] px-2 py-1 bg-red-500/20 text-red-300 rounded">
             {day} {month}
-        </span>
-    );
-})}
+          </span>
+        );
+      })}
     </div>
 
     {hotel.bookedDates.length > 5 && (
@@ -2187,3 +2222,4 @@ const Profile = () => {
 };
 
 export default Dashboard;
+

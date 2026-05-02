@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getBookings, createBooking, updateBooking, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates } = require('../Controllers/bookingController');
+const { getBookings, createBooking, updateBooking, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates, getMyHotelBookings } = require('../Controllers/bookingController');
 const { protect } = require('../Middleware/auth');
 const { adminOnly } = require('../Middleware/admin');
 
@@ -15,6 +15,8 @@ router.route('/:id')
   .delete(protect, cancelBooking);
 
 router.delete('/:id/delete', protect, deleteBooking);
+
+router.get('/my-hotel', protect, getMyHotelBookings);
 
 router.get('/hotel/:hotelId/dates', getHotelBookedDates);
 

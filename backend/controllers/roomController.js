@@ -173,3 +173,8 @@ exports.deleteRoom = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+exports.getMyRooms = async (req, res) => {
+  const rooms = await Room.find({ owner: req.user.id }); // or hotel.owner logic
+  res.json({ success: true, data: rooms });
+};

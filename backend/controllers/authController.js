@@ -1,12 +1,10 @@
 const User = require('../Models/User');
 const generateToken = require('../Utils/generateToken');
 
-// @desc    Register new user
-// @route   POST /api/auth/register
-// @access  Public
+// ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone, role } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -17,41 +15,54 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
-      phone: phone || ''
+      phone: phone || '',
+      role: role || 'user'
     });
 
     res.status(201).json({
       success: true,
+      message:
+        user.role === 'hotel_admin'
+          ? 'Account created. Waiting for system admin approval.'
+          : 'Registered successfully',
       data: {
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        phone: user.phone,
-        avatar: user.avatar,
+        isApproved: user.isApproved,
         token: generateToken(user._id)
       }
     });
+
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+// ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email }).select('+password');
+
     if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     const isMatch = await user.matchPassword(password);
+
     if (!isMatch) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    // ❗ BLOCK UNAPPROVED HOTEL ADMIN
+    if (user.role === 'hotel_admin' && !user.isApproved) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is waiting for approval by system admin'
+      });
     }
 
     res.json({
@@ -61,84 +72,50 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        phone: user.phone,
-        avatar: user.avatar,
+        isApproved: user.isApproved,
         token: generateToken(user._id)
       }
     });
+
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
 };
 
-// @desc    Get current user
-// @route   GET /api/auth/me
-// @access  Private
+// ================= GET ME =================
 exports.getMe = async (req, res) => {
+  const user = await User.findById(req.user.id);
+  res.json({ success: true, data: user });
+};
+
+// ================= APPROVE HOTEL ADMIN =================
+exports.approveHotelAdmin = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.params.id);
+
+    if (!user || user.role !== 'hotel_admin') {
+      return res.status(404).json({ success: false, error: 'Hotel admin not found' });
+    }
+
+    user.isApproved = true;
+    await user.save();
+
     res.json({
       success: true,
-      data: user
+      message: 'Hotel admin approved successfully'
     });
+
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/auth/me
-// @access  Private
-exports.updateProfile = async (req, res) => {
-  try {
-    const { name, phone, avatar } = req.body;
-    
-    const updateFields = {};
-    if (name !== undefined) updateFields.name = name;
-    if (phone !== undefined) updateFields.phone = phone;
-    if (avatar !== undefined) updateFields.avatar = avatar;
+// ================= GET PENDING HOTEL ADMINS =================
+exports.getPendingHotelAdmins = async (req, res) => {
+  const users = await User.find({
+    role: 'hotel_admin',
+    isApproved: false
+  });
 
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      updateFields,
-      { new: true, runValidators: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    res.json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-};
-
-// @desc    Update user avatar
-// @route   PUT /api/auth/me/avatar
-// @access  Private
-exports.updateAvatar = async (req, res) => {
-  try {
-    const { avatar } = req.body;
-    
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { avatar },
-      { new: true, runValidators: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    res.json({
-      success: true,
-      data: { avatar: user.avatar }
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
+  res.json({ success: true, data: users });
 };

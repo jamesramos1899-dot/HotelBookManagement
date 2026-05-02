@@ -8,7 +8,8 @@ const {
   deleteHotel,
   addReview,
   toggleFavorite,
-  getMyFavorites
+  getMyFavorites,
+  getMyHotelReviews
 } = require('../controllers/hotelController');
 const { protect } = require('../Middleware/auth');
 const { adminOnly } = require('../Middleware/admin');
@@ -16,6 +17,7 @@ const { adminOnly } = require('../Middleware/admin');
 router.get('/favorites/my', protect, getMyFavorites);
 router.post('/:id/favorite', protect, toggleFavorite);
 router.post('/:id/reviews', protect, addReview);
+router.get('/my-hotel-reviews', protect, getMyHotelReviews);
 
 router.route('/')
   .get(getHotels)

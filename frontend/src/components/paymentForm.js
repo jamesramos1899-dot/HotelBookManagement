@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import api from '../services/api';
 
@@ -7,11 +7,19 @@ const PaymentForm = ({ bookingId, amount, onSuccess, onError }) => {
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // ✅ CRITICAL: Use ref to guard against race conditions
+  const isSubmitting = useRef(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (!stripe || !elements) return;
-
+    
+    // ✅ Double protection: state + ref
+    if (loading || isSubmitting.current) return;
+    
+    isSubmitting.current = true;
     setLoading(true);
     setError(null);
 
@@ -42,14 +50,22 @@ const PaymentForm = ({ bookingId, amount, onSuccess, onError }) => {
           bookingId
         });
         
-        if (onSuccess) onSuccess();
+        // ✅ Call onSuccess BEFORE resetting loading state
+        if (onSuccess) {
+          await onSuccess();
+        }
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Payment failed';
       setError(msg);
       if (onError) onError(msg);
     } finally {
-      setLoading(false);
+      // ✅ Only reset if component is still mounted and onSuccess hasn't navigated away
+      // Use a small delay or check if still mounted
+      setTimeout(() => {
+        isSubmitting.current = false;
+        setLoading(false);
+      }, 500);
     }
   };
 
@@ -76,8 +92,8 @@ const PaymentForm = ({ bookingId, amount, onSuccess, onError }) => {
       
       <button
         type="submit"
-        disabled={!stripe || loading}
-        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+        disabled={!stripe || loading || isSubmitting.current}
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? 'Processing...' : `Pay $${amount}`}
       </button>

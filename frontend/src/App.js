@@ -4,6 +4,8 @@ import Login from './Login';
 import Dashboard from './Dashboard';
 import AdminDashboard from './AdminDashboard';
 import authService from './services/authService';
+import Swal from 'sweetalert2';
+import HotelAdminRegister from './HotelAdminRegister';
 
 const App = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -58,6 +60,22 @@ const App = () => {
     return <Login onLogin={handleLogin} />;
   }
 
+  // Show Hotel Admin Registration Page
+  if (currentPage === 'partner') {
+  return <HotelAdminRegister
+    onSuccess={() => {
+      Swal.fire({
+        icon: 'success',
+        title: 'Registration Submitted',
+        text: 'Your account is pending and waiting for system admin approval.',
+        confirmButtonColor: '#06b6d4'
+      });
+      setCurrentPage('home');
+    }}
+     onBack={() => setCurrentPage('home')} 
+  />;
+}
+
   // Show Home Page (landing page)
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-x-hidden relative">
@@ -68,36 +86,43 @@ const App = () => {
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-      {/* Navigation */}
-      <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-slate-950/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'}`}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-            <Diamond className="w-8 h-8 text-cyan-400" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">AI'STAY</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            <NavLink>Destinations</NavLink>
-            <NavLink>Experiences</NavLink>
-            <NavLink>Concierge</NavLink>
-            
-            {user ? (
-              <button 
-                onClick={() => setCurrentPage(user.role === 'admin' ? 'admin' : 'dashboard')}
-                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
-              >
-                Dashboard
-              </button>
-            ) : (
-              <button 
-                onClick={() => setCurrentPage('login')}
-                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
-              >
-                Sign In
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
+{/* Navigation */}
+<nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-slate-950/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'}`}>
+  <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    
+    <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
+      <Diamond className="w-8 h-8 text-cyan-400" />
+      <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+        AI STAY
+      </span>
+    </div>
+
+    <div className="hidden md:flex items-center gap-8">
+      <button
+        onClick={() => setCurrentPage('partner')}
+        className="text-gray-300 hover:text-white transition-colors font-medium"
+      >
+        Let&apos;s Partner
+      </button>
+
+      {user ? (
+        <button
+          onClick={() => setCurrentPage(user.role === 'admin' ? 'admin' : 'dashboard')}
+          className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
+        >
+          Dashboard
+        </button>
+      ) : (
+        <button
+          onClick={() => setCurrentPage('login')}
+          className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
+        >
+          Sign In
+        </button>
+      )}
+    </div>
+  </div>
+</nav>
 
       {/* Hero Section */}
       <section className="relative z-10 pt-32 pb-20 px-6">

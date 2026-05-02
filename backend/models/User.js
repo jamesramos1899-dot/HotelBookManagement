@@ -11,8 +11,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please add an email'],
     unique: true,
-    lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
+    lowercase: true
   },
   password: {
     type: String,
@@ -20,11 +19,22 @@ const userSchema = new mongoose.Schema({
     minlength: 6,
     select: false
   },
+
+  // ✅ UPDATED ROLES
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'hotel_admin', 'system_admin'],
     default: 'user'
   },
+
+  // ✅ NEW: approval status (for hotel admins)
+  isApproved: {
+    type: Boolean,
+    default: function () {
+      return this.role !== 'hotel_admin'; // auto approve if not hotel admin
+    }
+  },
+
   phone: {
     type: String,
     default: ''
@@ -33,24 +43,27 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Hotel'
   }],
+
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
+// HASH PASSWORD
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    next();
-  }
+  if (!this.isModified('password')) return next();
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+// MATCH PASSWORD
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
