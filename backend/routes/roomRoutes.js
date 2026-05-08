@@ -11,20 +11,20 @@ const {
   getMyRooms
 } = require('../Controllers/roomController');
 
-const { protect } = require('../Middleware/auth');
-const { adminOnly } = require('../Middleware/admin');
+const { protect, authorize } = require('../Middleware/auth');
 
 // ================= PUBLIC ROUTES =================
 router.get('/', getRooms);
-router.get('/:id', getRoom);
 
 // IMPORTANT: must come before /:id
 router.get('/hotel/:hotelId', getRoomsByHotel);
 
+router.get('/:id', getRoom);
+
 // ================= PROTECTED ADMIN ROUTES =================
-router.post('/', protect, adminOnly, createRoom);
-router.put('/:id', protect, adminOnly, updateRoom);
-router.delete('/:id', protect, adminOnly, deleteRoom);
+router.post('/', protect, authorize('system_admin', 'hotel_admin', 'admin'), createRoom);
+router.put('/:id', protect, authorize('system_admin', 'hotel_admin', 'admin'), updateRoom);
+router.delete('/:id', protect, authorize('system_admin', 'hotel_admin', 'admin'), deleteRoom);
 
 // ================= USER ROUTE =================
 router.get('/my', protect, getMyRooms);

@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
     select: false
   },
 
-  // ✅ UPDATED ROLES
+  // ✅ UPDATED ROLES: user (guest/customer), hotel_admin, system_admin
   role: {
     type: String,
     enum: ['user', 'hotel_admin', 'system_admin'],
@@ -30,9 +30,19 @@ const userSchema = new mongoose.Schema({
   // ✅ NEW: approval status (for hotel admins)
   isApproved: {
     type: Boolean,
-    default: function () {
-      return this.role !== 'hotel_admin'; // auto approve if not hotel admin
-    }
+    default: false
+  },
+
+    address: {
+    type: String,
+    default: ''
+  },
+
+  // ✅ NEW: hotel association for hotel admins
+  hotelId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Hotel',
+    default: null
   },
 
   phone: {

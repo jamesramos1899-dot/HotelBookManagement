@@ -1,28 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const { getBookings, createBooking, updateBooking, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates, getMyHotelBookings } = require('../Controllers/bookingController');
-const { protect } = require('../Middleware/auth');
-const { adminOnly } = require('../Middleware/admin');
+const { protect, authorize } = require('../Middleware/auth');
 
+// ================= PUBLIC ROUTES =================
 router.get('/room/:roomId/dates', getRoomBookedDates);
+router.get('/hotel/:hotelId/dates', getHotelBookedDates);
 
+// ================= PROTECTED ROUTES =================
 router.route('/')
   .get(protect, getBookings)
   .post(protect, createBooking);
 
 router.route('/:id')
-  .put(protect, adminOnly, updateBooking)
+  .put(protect, authorize('system_admin', 'hotel_admin', 'admin'), updateBooking)
   .delete(protect, cancelBooking);
 
 router.delete('/:id/delete', protect, deleteBooking);
 
-router.get('/my-hotel', protect, getMyHotelBookings);
+// Hotel admin can see bookings for their hotels
+router.get('/my-hotel', protect, authorize('hotel_admin', 'system_admin', 'admin'), getMyHotelBookings);
 
-router.get('/hotel/:hotelId/dates', getHotelBookedDates);
-
+// Check availability
 router.post('/check-availability', protect, async (req, res) => {
   try {
     const { room, checkInDate, checkOutDate } = req.body;
+    const Booking = require('../Models/Booking');
 
     const existingBooking = await Booking.findOne({
       room: room,
@@ -40,4 +43,5 @@ router.post('/check-availability', protect, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 module.exports = router;

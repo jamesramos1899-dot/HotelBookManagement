@@ -23,17 +23,44 @@ const protect = async (req, res, next) => {
   }
 };
 
-// ✅ ROLE AUTHORIZATION
+// ✅ ROLE AUTHORIZATION - Updated for 3 roles: user, hotel_admin, system_admin
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        error: `Access denied for role: ${req.user.role}`
+        error: `Access denied for role: ${req.user.role}. Required: ${roles.join(', ')}`
       });
     }
     next();
   };
 };
 
-module.exports = { protect, authorize };
+// ✅ SYSTEM ADMIN ONLY
+const systemAdminOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'system_admin') {
+    next();
+  } else {
+    res.status(403).json({ success: false, error: 'Not authorized as system admin' });
+  }
+};
+
+// ✅ HOTEL ADMIN ONLY
+const hotelAdminOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'hotel_admin') {
+    next();
+  } else {
+    res.status(403).json({ success: false, error: 'Not authorized as hotel admin' });
+  }
+};
+
+// ✅ ADMIN ONLY (system_admin OR hotel_admin)
+const adminOnly = (req, res, next) => {
+  if (req.user && (req.user.role === 'system_admin' || req.user.role === 'hotel_admin' )) {
+    next();
+  } else {
+    res.status(403).json({ success: false, error: 'Not authorized as admin' });
+  }
+};
+
+module.exports = { protect, authorize, systemAdminOnly, hotelAdminOnly, adminOnly };

@@ -11,21 +11,24 @@ const {
   getMyFavorites,
   getMyHotelReviews
 } = require('../controllers/hotelController');
-const { protect } = require('../Middleware/auth');
-const { adminOnly } = require('../Middleware/admin');
+const { protect, authorize } = require('../middleware/auth');
 
+// ================= PUBLIC ROUTES =================
+router.get('/', getHotels);
+router.get('/:id', getHotel);
+
+// ================= PROTECTED USER ROUTES =================
 router.get('/favorites/my', protect, getMyFavorites);
 router.post('/:id/favorite', protect, toggleFavorite);
 router.post('/:id/reviews', protect, addReview);
 router.get('/my-hotel-reviews', protect, getMyHotelReviews);
 
+// ================= ADMIN ROUTES (System Admin or Hotel Admin) =================
 router.route('/')
-  .get(getHotels)
-  .post(protect, adminOnly, createHotel);
+  .post(protect, authorize('system_admin', 'hotel_admin', 'admin'), createHotel);
 
 router.route('/:id')
-  .get(getHotel)
-  .put(protect, adminOnly, updateHotel)
-  .delete(protect, adminOnly, deleteHotel);
+  .put(protect, authorize('system_admin', 'hotel_admin', 'admin'), updateHotel)
+  .delete(protect, authorize('system_admin', 'admin'), deleteHotel); // Only system_admin can delete
 
 module.exports = router;

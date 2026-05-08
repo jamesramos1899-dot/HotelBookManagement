@@ -133,6 +133,23 @@ exports.cancelBooking = async (req, res) => {
 // ================= DELETE BOOKING =================
 exports.deleteBooking = async (req, res) => {
   try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    // Users can only delete their own bookings
+    // Hotel admins can delete bookings for their hotels
+    // System admins can delete any booking
+    const isOwner = booking.user.toString() === req.user.id;
+    const isHotelOwner = req.user.role === 'hotel_admin' && booking.hotel?.owner?.toString() === req.user.id;
+    const isAdmin = req.user.role === 'system_admin' || req.user.role === 'admin';
+
+    if (!isOwner && !isHotelOwner && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Not authorized to delete this booking' });
+    }
+
     await Booking.findByIdAndDelete(req.params.id);
 
     res.json({
@@ -174,7 +191,8 @@ exports.getRoomBookedDates = async (req, res) => {
 // ================= HOTEL BOOKED DATES =================
 exports.getHotelBookedDates = async (req, res) => {
   try {
-    const bookings = await Booking.find({ hotel: req.params.hotelId });
+    const bookings = await Booking.find({ hotel: req.params.hotelId })
+      .populate('room', 'type roomNumber');
 
     const dates = bookings
       .map(b => {
@@ -183,7 +201,12 @@ exports.getHotelBookedDates = async (req, res) => {
 
         if (!checkIn || !checkOut) return null;
 
-        return { checkIn, checkOut };
+        return { 
+          checkIn, 
+          checkOut,
+          roomType: b.room?.type || 'Room',
+          roomNumber: b.room?.roomNumber || ''
+        };
       })
       .filter(Boolean);
 

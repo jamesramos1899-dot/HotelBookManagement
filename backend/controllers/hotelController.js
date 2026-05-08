@@ -5,7 +5,9 @@ const Room = require('../Models/Room');
 // ================= GET ALL HOTELS =================
 exports.getHotels = async (req, res) => {
   try {
-    const hotels = await Hotel.find({ isActive: true });
+        const hotels = await Hotel.find({ isActive: true })
+      .populate('reviews.user', 'name avatar')
+      .populate('owner', 'name email');
 
     const data = await Promise.all(
       hotels.map(async (h) => {
@@ -49,17 +51,24 @@ exports.getHotel = async (req, res) => {
 };
 
 // ================= CREATE HOTEL =================
+// ================= CREATE HOTEL =================
 exports.createHotel = async (req, res) => {
   try {
     const hotel = await Hotel.create({
       ...req.body,
-      owner: req.user.id
+      owner: req.user.id,  // Link to hotel admin
+      createdBy: req.user.id
     });
 
-    res.status(201).json({ success: true, data: hotel });
+    // Update user with hotelId
+    await User.findByIdAndUpdate(req.user.id, { hotelId: hotel._id });
 
+    res.status(201).json({
+      success: true,
+      data: hotel
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(400).json({ success: false, error: error.message });
   }
 };
 
