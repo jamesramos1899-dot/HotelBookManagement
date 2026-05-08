@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, } from 'react';
+import Swal from 'sweetalert2';
 import { 
   Diamond, Search, Calendar, Users, MapPin, Star, 
   LogOut, Home, BookOpen, Heart, User, Filter,
@@ -59,7 +60,25 @@ const StripePaymentForm = ({ amount, room, checkIn, checkOut, onSuccess, onError
         return;
       }
 
-      if (result.paymentIntent.status === "succeeded") {
+            if (result.paymentIntent.status === "succeeded") {
+        // ✅ Show SweetAlert with NO timer — user must click OK
+        await Swal.fire({
+          icon: 'success',
+          title: 'Payment Successful!',
+          text: `₱${amount} has been charged to your card.`,
+          confirmButtonText: 'View Receipt',
+          confirmButtonColor: '#f59e0b',
+          showConfirmButton: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          background: '#0f172a',
+          color: '#fff',
+          customClass: {
+            popup: 'rounded-2xl border border-white/10',
+            confirmButton: 'rounded-xl px-6 py-2'
+          }
+        });
+        
         onSuccess(result.paymentIntent);
       }
 
@@ -543,6 +562,571 @@ const ReviewsDisplayModal = ({ isOpen, onClose, hotel }) => {
     </div>
   );
 };
+// PROFILE COMPONENT - Defined outside Dashboard to prevent re-mounting
+const Profile = ({ 
+  user, 
+  profileData, 
+  setProfileData, 
+  isEditingProfile, 
+  setIsEditingProfile, 
+  uploadingPhoto, 
+  setUploadingPhoto,
+  editForm, 
+  setEditForm,
+  loading, 
+  setLoading,
+  api,
+  authService,
+  setAlertModal,
+  fetchUserProfile,
+  myBookings,
+  favorites,
+  hotels,
+  handlePhotoUpload
+}) => {
+
+  // Initialize edit form when entering edit mode
+  useEffect(() => {
+    if (isEditingProfile) {
+      setEditForm({
+        name: profileData.name || '',
+        phone: profileData.phone || ''
+      });
+    }
+  }, [isEditingProfile, profileData.name, profileData.phone, setEditForm]);
+
+  // Handle input changes
+  const handleInputChange = useCallback((field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, [setEditForm]);
+
+  // Save changes
+  const handleSaveChanges = async () => {
+    try {
+      setLoading(true);
+      const response = await api.put('/auth/me', {
+        name: editForm.name,
+        phone: editForm.phone
+      });
+      
+            if (response.data.success) {
+        setProfileData(prev => ({
+          ...prev,
+          name: editForm.name,
+          phone: editForm.phone
+        }));
+        
+        // Update localStorage so sidebar reflects new name immediately
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          localStorage.setItem('user', JSON.stringify({ 
+            ...currentUser, 
+            name: editForm.name,
+            phone: editForm.phone 
+          }));
+        }
+        
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Profile updated successfully',
+          type: 'success'
+        });
+        setIsEditingProfile(false);
+        fetchUserProfile();
+      }
+    } catch (err) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.error || 'Failed to update profile',
+        type: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">My Profile</h2>
+      <p className="text-gray-400 text-sm">Manage your account</p>
+      
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 max-w-2xl border border-white/10">
+        {/* Avatar Section */}
+        <div className="flex items-center gap-6 mb-8">
+          <div className="relative group">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-3xl font-bold overflow-hidden">
+              {profileData.avatar ? (
+                                              <img 
+                  src={profileData.avatar} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => { 
+                    console.error('Profile avatar failed to load:', profileData.avatar);
+                    console.error('Full src attribute:', e.target.src);
+                    e.target.alt = 'Failed to load'; 
+                  }}
+                />
+              ) : (
+                profileData.name?.charAt(0) || 'U'
+              )}
+            </div>
+            <label 
+              htmlFor="avatar-upload" 
+              className="absolute -bottom-1 -right-1 w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center cursor-pointer border-2 border-slate-900 hover:bg-slate-700 transition-colors shadow-lg z-10"
+            >
+              <input 
+                type="file" 
+                accept="image/jpeg,image/png,image/jpg,image/webp" 
+                className="hidden" 
+                onChange={handlePhotoUpload}
+                disabled={uploadingPhoto}
+                id="avatar-upload"
+              />
+              {uploadingPhoto ? (
+                <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+              ) : (
+                <Camera className="w-4 h-4 text-white" />
+              )}
+            </label>
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-xl font-bold">{profileData.name || 'User'}</h3>
+            <p className="text-gray-400 text-sm">{profileData.email}</p>
+            <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+              <Phone className="w-3 h-3" /> {profileData.phone || 'No phone added'}
+            </p>
+          </div>
+          
+          <button
+            onClick={() => setIsEditingProfile(!isEditingProfile)}
+            className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
+          >
+            {isEditingProfile ? 'Cancel' : 'Edit Profile'}
+          </button>
+        </div>
+
+        {isEditingProfile ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Full Name</label>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                autoFocus
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Email</label>
+              <input
+                type="email"
+                value={profileData.email}
+                disabled
+                className="w-full p-3 bg-slate-800/50 border border-white/10 rounded-xl text-gray-500 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                placeholder="09123456789"
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+              />
+            </div>
+            
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={loading}
+                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Member Since</p>
+                               <p className="font-medium">{profileData.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Role</p>
+                <p className="font-medium capitalize">{user?.role || 'User'}</p>
+              </div>
+            </div>
+            
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Account Stats</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-cyan-400">{myBookings.length}</p>
+                  <p className="text-xs text-gray-400">Bookings</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-purple-400">{favorites.length}</p>
+                  <p className="text-xs text-gray-400">Favorites</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-400">
+                    {hotels.reduce((acc, hotel) => {
+                      const userReviews = hotel.reviews?.filter(r => r.user?._id === user?._id).length || 0;
+                      return acc + userReviews;
+                    }, 0)}
+                  </p>
+                  <p className="text-xs text-gray-400">Reviews</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave, handleToggleFavorite, favoriteIds, isAdmin, handleDeleteHotel, setReviewModal, setReviewsModal }) => {
+    const isFav = favoriteIds.has(hotel.id);
+    const [expandedBookings, setExpandedBookings] = useState({});
+    
+    const toggleExpand = (roomType) => {
+      setExpandedBookings(prev => ({
+        ...prev,
+        [roomType]: !prev[roomType]
+      }));
+    };
+    
+    return (
+            <div 
+        className="group bg-slate-900/50 rounded-2xl overflow-visible border border-white/10 hover:border-cyan-500/50 transition-all duration-500 hover:shadow-xl hover:shadow-cyan-500/10 relative isolate"
+        onMouseEnter={onHover}
+        onMouseLeave={onLeave}
+      >
+        <div className="relative h-48 overflow-hidden">
+          <img src={hotel.image} alt={hotel.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+          
+          <button
+            onClick={(e) => handleToggleFavorite(hotel.id, e)}
+            className="absolute top-4 left-4 p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors z-10"
+          >
+            <HeartIcon className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+          </button>
+
+          {isAdmin && (
+            <button
+              onClick={(e) => handleDeleteHotel(hotel.id, e)}
+              className="absolute top-4 right-16 p-2 rounded-full bg-red-500/50 backdrop-blur-sm hover:bg-red-500/70 transition-colors z-10"
+              title="Delete Hotel"
+            >
+              <Trash className="w-5 h-5 text-white" />
+            </button>
+          )}
+
+          <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1">
+            <StarRating rating={Math.round(hotel.rating)} size="sm" />
+            <span className="font-bold text-sm">{hotel.rating}</span>
+            {hotel.reviewCount > 0 && (
+              <span className="text-xs text-gray-400">({hotel.reviewCount})</span>
+            )}
+          </div>
+          
+          {isHovered && (
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all duration-300">
+              <div className="text-center p-4">
+                <Users className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
+                <p className="text-lg font-bold mb-1">{hotel.maxGuests} Persons</p>
+                <p className="text-sm text-gray-300">Maximum capacity per room</p>
+                <div className="mt-3 flex flex-wrap justify-center gap-1">
+                  {hotel.roomTypes.slice(0, 2).map((type, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-white/20 rounded text-xs">
+                      {type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-5">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <h3 className="font-bold text-lg group-hover:text-cyan-400 transition-colors">{hotel.name}</h3>
+              <div className="flex items-center gap-1 text-gray-400 text-sm">
+                <MapPin className="w-4 h-4" /> {hotel.location}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-gray-400 bg-white/5 px-2 py-1 rounded-lg">
+              <Users className="w-3 h-3" />
+              <span>Max {hotel.maxGuests}</span>
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm mb-4 line-clamp-2">{hotel.description}</p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {hotel.amenities.map((amenity, idx) => (
+              <span key={idx} className="px-2 py-1 bg-white/5 rounded-md text-xs text-gray-300 border border-white/10">
+                {amenity}
+              </span>
+            ))}
+          </div>
+
+         {hotel.bookedDatesByRoomType && Object.keys(hotel.bookedDatesByRoomType).length > 0 && (
+  <div className="mb-3 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+    <div className="flex items-center gap-1 mb-2">
+      <Calendar className="w-3 h-3 text-red-400" />
+      <span className="text-xs text-red-300 font-medium">Booked Dates by Room:</span>
+    </div>
+
+    <div className="space-y-2">
+      {Object.entries(hotel.bookedDatesByRoomType).map(([roomType, dates]) => {
+        const isExpanded = expandedBookings[roomType];
+        const visibleDates = isExpanded ? dates : dates.slice(0, 5);
+        const hiddenCount = dates.length - 5;
+        
+        return (
+          <div key={roomType} className="flex items-start gap-2">
+            <span className="text-[10px] text-gray-400 font-medium min-w-[45px] mt-0.5">{roomType}:</span>
+            <div className="flex flex-wrap gap-1 items-center">
+              {visibleDates.map((dateStr, idx) => {
+                const [y, m, d] = dateStr.split('-').map(Number);
+                const dateObj = new Date(y, m - 1, d);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = dateObj.toLocaleString('en-GB', { month: 'short' });
+                
+                return (
+                  <span key={idx} className="text-[10px] px-2 py-1 bg-red-500/20 text-red-300 rounded">
+                    {day} {month}
+                  </span>
+                );
+              })}
+              
+              {!isExpanded && hiddenCount > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpand(roomType);
+                  }}
+                  className="text-[10px] px-2 py-1 bg-red-500/30 text-red-300 rounded hover:bg-red-500/40 transition-colors cursor-pointer"
+                >
+                  +{hiddenCount} more
+                </button>
+              )}
+              
+              {isExpanded && hiddenCount > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpand(roomType);
+                  }}
+                  className="text-[10px] px-2 py-1 bg-gray-500/30 text-gray-300 rounded hover:bg-gray-500/40 transition-colors cursor-pointer"
+                >
+                  show less
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+          
+          {/* Show recent reviews preview */}
+          {hotel.reviews && hotel.reviews.length > 0 && (
+            <div className="mb-3 p-2 bg-white/5 rounded-lg border border-white/5">
+              <div className="flex items-center gap-1 mb-1">
+                <MessageSquare className="w-3 h-3 text-cyan-400" />
+                <span className="text-xs text-gray-400">Latest review:</span>
+              </div>
+              <p className="text-xs text-gray-300 italic line-clamp-1">"{hotel.reviews[hotel.reviews.length - 1].comment}"</p>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-gray-500">
+                  — {hotel.reviews[hotel.reviews.length - 1].user?.name || 'Guest'}
+                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReviewsModal({ isOpen: true, hotel });
+                  }}
+                  className="text-xs text-cyan-400 hover:text-cyan-300"
+                >
+                  View all {hotel.reviews.length} reviews
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-between items-center pt-4 border-t border-white/10">
+            <div>
+              <span className="text-2xl font-bold text-cyan-400">₱{hotel.price}</span>
+              <span className="text-gray-500 text-sm">/night</span>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReviewModal({ isOpen: true, hotel });
+                }}
+                className="px-3 py-2 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Review
+              </button>
+              
+              <button 
+                onClick={() => onBookNow(hotel)}
+                className="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white"
+              >
+                Book Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  const BrowseHotels = ({ 
+  searchQuery, 
+  setSearchQuery, 
+  selectedGuests, 
+  setSelectedGuests, 
+  showGuestDropdown, 
+  setShowGuestDropdown, 
+  filteredHotels, 
+  loading, 
+  handleBookNow, 
+  hoveredHotel, 
+  setHoveredHotel, 
+  handleToggleFavorite, 
+  favoriteIds, 
+  isAdmin, 
+  handleDeleteHotel, 
+  setReviewModal, 
+  setReviewsModal,
+  guestOptions
+}) => {
+  return (
+    <div className="space-y-6">
+     <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-4 border border-white/10 overflow-visible relative z-10">
+        <div className="grid md:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-2 relative">
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1 ml-1">Search</label>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search hotels or destinations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white"
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
+          </div>
+
+         <div className="relative z-20 overflow-visible">
+            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1 ml-1">Guests</label>
+            <div className="relative overflow-visible">
+              <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400 pointer-events-none" />
+              <button
+                type="button"
+                onClick={() => setShowGuestDropdown(prev => !prev)}
+                className="w-full pl-12 pr-10 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white text-left flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+              >
+                <span>{selectedGuests} Guests</span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showGuestDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showGuestDropdown && (
+                <div className="absolute right-0 mt-2 bg-slate-900 border border-white/10 rounded-xl shadow-xl max-h-60 overflow-y-auto z-30 w-full min-w-[200px]">
+                  {guestOptions.map(num => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGuests(num);
+                        setShowGuestDropdown(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-white/10 transition-colors flex items-center justify-between ${
+                        selectedGuests === num ? 'bg-cyan-500/20 text-cyan-400' : 'text-white'
+                      }`}
+                    >
+                      <span>{num} Guests</span>
+                      {selectedGuests === num && <Check className="w-4 h-4" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <div className="text-gray-400">
+          Showing <span className="text-white font-bold">{filteredHotels.length}</span> properties
+          <span className="text-cyan-400 text-sm ml-2">(for {selectedGuests} guests)</span>
+        </div>
+        
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center p-12">
+          <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredHotels.map(hotel => (
+            <HotelCard 
+              key={hotel.id} 
+              hotel={hotel} 
+              onBookNow={handleBookNow}
+              isHovered={hoveredHotel === hotel.id}
+              onHover={() => setHoveredHotel(hotel.id)}
+              onLeave={() => setHoveredHotel(null)}
+              handleToggleFavorite={handleToggleFavorite}
+              favoriteIds={favoriteIds}
+              isAdmin={isAdmin}
+              handleDeleteHotel={handleDeleteHotel}
+              setReviewModal={setReviewModal}
+              setReviewsModal={setReviewsModal}
+            />
+          ))}
+        </div>
+      )}
+      
+      {filteredHotels.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400 mb-2">No hotels found for {selectedGuests} guests</p>
+          <p className="text-gray-500 text-sm">Try selecting fewer guests or check back later</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Dashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('browse');
@@ -576,8 +1160,7 @@ const Dashboard = ({ user, onLogout }) => {
     type: 'error'
   });
   
-  // Profile state
-  const [profileData, setProfileData] = useState({
+   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
@@ -586,11 +1169,36 @@ const Dashboard = ({ user, onLogout }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
+  // Profile edit form state - moved here to prevent re-initialization
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: ''
+  });
+  
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Load cached user data immediately on mount to prevent empty sidebar
+  useEffect(() => {
+    const cachedUser = authService.getCurrentUser();
+    if (cachedUser) {
+      let avatarUrl = cachedUser.avatar || '';
+      if (avatarUrl && !avatarUrl.startsWith('http') && api.defaults.baseURL) {
+        let baseUrl = api.defaults.baseURL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+        avatarUrl = baseUrl + '/' + avatarUrl.replace(/^\//, '');
+      }
+      setProfileData(prev => ({
+        ...prev,
+        name: cachedUser.name || prev.name,
+        email: cachedUser.email || prev.email,
+        phone: cachedUser.phone || prev.phone,
+        avatar: avatarUrl || prev.avatar
+      }));
+    }
+  }, []);
 
   const guestOptions = [1, 2, 3, 4, 5, 6, 7, 8];
   const isAdmin = user?.role === 'admin';
@@ -604,16 +1212,17 @@ const Dashboard = ({ user, onLogout }) => {
     return diffDays > 0 ? diffDays : 0;
   }, [modalCheckIn, modalCheckOut]);
 
-  useEffect(() => {
+   useEffect(() => {
     fetchHotels();
-    if (activeTab === 'bookings') {
-      fetchMyBookings();
-    }
+    fetchMyBookings();
+    fetchFavorites();
+    fetchUserProfile();
+  }, []);
+
+  // Re-fetch favorites when navigating to favorites tab to ensure sync
+  useEffect(() => {
     if (activeTab === 'favorites') {
       fetchFavorites();
-    }
-    if (activeTab === 'profile') {
-      fetchUserProfile();
     }
   }, [activeTab]);
 
@@ -623,13 +1232,36 @@ const Dashboard = ({ user, onLogout }) => {
     }
   }, [selectedRoom, bookingStep, calendarMonth]);
 
-  const fetchBookedDates = async () => {
+    const fetchBookedDates = async () => {
     try {
       const year = calendarMonth.getFullYear();
       const month = calendarMonth.getMonth();
       const response = await getRoomBookedDates(selectedRoom._id, year, month);
       if (response.success) {
-        setBookedDates(response.data);
+        // Flatten date ranges into individual YYYY-MM-DD strings
+        let dates = [];
+        if (Array.isArray(response.data)) {
+          response.data.forEach(booking => {
+            const checkIn = booking.checkIn || booking.checkInDate || booking;
+            const checkOut = booking.checkOut || booking.checkOutDate || booking;
+            
+            if (checkIn && checkOut) {
+              const start = new Date(checkIn);
+              const end = new Date(checkOut);
+              if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                const current = new Date(start);
+                while (current <= end) {
+                  const y = current.getFullYear();
+                  const m = String(current.getMonth() + 1).padStart(2, '0');
+                  const d = String(current.getDate()).padStart(2, '0');
+                  dates.push(`${y}-${m}-${d}`);
+                  current.setDate(current.getDate() + 1);
+                }
+              }
+            }
+          });
+        }
+        setBookedDates(dates);
       }
     } catch (err) {
       console.error('Failed to fetch booked dates', err);
@@ -642,16 +1274,30 @@ const Dashboard = ({ user, onLogout }) => {
       const response = await api.get('/auth/me');
       if (response.data.success) {
         const userData = response.data.data;
-        setProfileData({
+        let avatarUrl = userData.avatar || '';
+        // Convert relative URL to absolute URL
+        if (avatarUrl && !avatarUrl.startsWith('http')) {
+          let baseUrl = api.defaults.baseURL || 'http://localhost:5001';
+          // Remove /api from end if present, since uploads are served at root
+          baseUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+          avatarUrl = baseUrl + '/' + avatarUrl.replace(/^\//, '');
+        }
+        
+        const updatedProfile = {
           name: userData.name || '',
           email: userData.email || '',
           phone: userData.phone || '',
-          avatar: userData.avatar || ''
-        });
+          avatar: avatarUrl,
+          createdAt: userData.createdAt || userData.created_at || ''
+        };
+        
+        setProfileData(updatedProfile);
+        
         // Update localStorage user data too
         const currentUser = authService.getCurrentUser();
         if (currentUser) {
-          localStorage.setItem('user', JSON.stringify({ ...currentUser, ...userData }));
+          const updatedUser = { ...currentUser, ...userData, avatar: avatarUrl };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
         }
       }
     } catch (err) {
@@ -678,26 +1324,34 @@ const Dashboard = ({ user, onLogout }) => {
               const bookedRes = await getHotelBookedDates(hotel._id);
               const maxCapacity = calculateHotelMaxCapacity(hotelRooms);
               
-              // ✅ FIX: Flatten booking ranges into individual date strings
+                           // ✅ FIX: Group booked dates by room type
+              let bookedDatesByRoomType = {};
               let bookedDatesList = [];
+              
               if (bookedRes.success && Array.isArray(bookedRes.data)) {
                 bookedRes.data.forEach(booking => {
-                  // Handle both object format {checkIn, checkOut} and string format
-                  const checkIn = booking.checkIn || booking;
-                  const checkOut = booking.checkOut || booking;
+                  const checkIn = booking.checkIn || booking.checkInDate || booking;
+                  const checkOut = booking.checkOut || booking.checkOutDate || booking;
+                  const roomType = booking.room?.type || booking.roomType || 'Room';
                   
                   if (checkIn && checkOut) {
                     const start = new Date(checkIn);
                     const end = new Date(checkOut);
                     
                     if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-                      // Generate all dates in the range
                       const current = new Date(start);
                       while (current <= end) {
                         const year = current.getFullYear();
                         const month = String(current.getMonth() + 1).padStart(2, '0');
                         const day = String(current.getDate()).padStart(2, '0');
-                        bookedDatesList.push(`${year}-${month}-${day}`);
+                        const dateStr = `${year}-${month}-${day}`;
+                        
+                        bookedDatesList.push(dateStr);
+                        
+                        if (!bookedDatesByRoomType[roomType]) {
+                          bookedDatesByRoomType[roomType] = new Set();
+                        }
+                        bookedDatesByRoomType[roomType].add(dateStr);
                         
                         current.setDate(current.getDate() + 1);
                       }
@@ -705,6 +1359,11 @@ const Dashboard = ({ user, onLogout }) => {
                   }
                 });
               }
+              
+              // Convert Sets to sorted arrays
+              Object.keys(bookedDatesByRoomType).forEach(type => {
+                bookedDatesByRoomType[type] = Array.from(bookedDatesByRoomType[type]).sort();
+              });
               
               return {
                 id: hotel._id,
@@ -719,8 +1378,9 @@ const Dashboard = ({ user, onLogout }) => {
                 maxGuests: maxCapacity || hotel.maxGuests || 4,
                 roomTypes: [...new Set(hotelRooms.map(r => r.type))] || ['Standard', 'Deluxe', 'Suite'],
                 reviews: hotel.reviews || [],
-                rooms: hotelRooms,
-                bookedDates: bookedDatesList // ✅ Now contains ["2024-10-22", "2024-10-23", ...]
+                                rooms: hotelRooms,
+                bookedDates: bookedDatesList,
+                bookedDatesByRoomType: bookedDatesByRoomType
               };
             } catch (err) {
               return {
@@ -736,8 +1396,9 @@ const Dashboard = ({ user, onLogout }) => {
                 maxGuests: hotel.maxGuests || 4,
                 roomTypes: ['Standard', 'Deluxe', 'Suite'],
                 reviews: hotel.reviews || [],
-                rooms: [],
-                bookedDates: []
+                                rooms: [],
+                bookedDates: [],
+                bookedDatesByRoomType: {}
               };
             }
           })
@@ -752,13 +1413,15 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  const fetchFavorites = async () => {
+   const fetchFavorites = async () => {
     try {
       setLoading(true);
       const response = await getMyFavorites();
       if (response.success) {
         setFavorites(response.data);
-        setFavoriteIds(new Set(response.data.map(h => h._id)));
+        // Sync favoriteIds with server response to ensure consistency
+        const serverFavoriteIds = new Set(response.data.map(h => h._id));
+        setFavoriteIds(serverFavoriteIds);
       }
     } catch (err) {
       console.error('Failed to load favorites', err);
@@ -796,22 +1459,45 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handleToggleFavorite = async (hotelId, e) => {
+    const handleToggleFavorite = async (hotelId, e) => {
     e.stopPropagation();
     try {
       const response = await toggleFavorite(hotelId);
       if (response.success) {
         if (response.isFavorite) {
+          // Add to favoriteIds
           setFavoriteIds(prev => new Set([...prev, hotelId]));
+          // Add the hotel object to favorites array immediately
+          const hotelToAdd = hotels.find(h => h.id === hotelId);
+          if (hotelToAdd) {
+            setFavorites(prev => [...prev, {
+              _id: hotelToAdd.id,
+              name: hotelToAdd.name,
+              location: {
+                city: hotelToAdd.location.split(',')[0]?.trim(),
+                country: hotelToAdd.location.split(',')[1]?.trim()
+              },
+              starRating: Math.round(hotelToAdd.price / 500),
+              averageRating: hotelToAdd.rating,
+              reviewCount: hotelToAdd.reviewCount,
+              images: [hotelToAdd.image],
+              amenities: hotelToAdd.amenities,
+              description: hotelToAdd.description,
+              maxGuests: hotelToAdd.maxGuests,
+              reviews: hotelToAdd.reviews,
+              bookedDates: hotelToAdd.bookedDates,
+              bookedDatesByRoomType: hotelToAdd.bookedDatesByRoomType
+            }]);
+          }
         } else {
+          // Remove from favoriteIds
           setFavoriteIds(prev => {
             const newSet = new Set(prev);
             newSet.delete(hotelId);
             return newSet;
           });
-        }
-        if (activeTab === 'favorites') {
-          fetchFavorites();
+          // Remove from favorites array immediately
+          setFavorites(prev => prev.filter(f => f._id !== hotelId));
         }
       }
     } catch (err) {
@@ -865,83 +1551,113 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
-    
-    try {
-      setLoading(true);
-      const response = await cancelBooking(bookingId);
-      if (response.success) {
-        await fetchMyBookings();
-      }
-    } catch (err) {
-      alert('Failed to cancel booking: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteBooking = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this cancelled booking? This action cannot be undone.')) return;
-    
-    try {
-      setLoading(true);
-      const response = await deleteBooking(bookingId);
-      if (response.success) {
-        await fetchMyBookings();
-        setAlertModal({
-          isOpen: true,
-          title: 'Deleted',
-          message: 'Booking has been permanently deleted',
-          type: 'success'
-        });
-      }
-    } catch (err) {
+ const handleCancelBooking = async (bookingId) => {
+  if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+  
+  try {
+    setLoading(true);
+    const response = await cancelBooking(bookingId);
+          if (response.success) {
+        // Update local state immediately for instant feedback
+        setMyBookings(prev => prev.map(b => 
+          b._id === bookingId ? { ...b, status: 'cancelled' } : b
+        ));
+        // Re-fetch hotels to free up cancelled dates
+        fetchHotels();
       setAlertModal({
         isOpen: true,
-        title: 'Error',
-        message: err.response?.data?.error || 'Failed to delete booking',
-        type: 'error'
+        title: 'Cancelled',
+        message: 'Booking has been cancelled successfully',
+        type: 'success'
       });
-    } finally {
-      setLoading(false);
     }
-  };
-
-  // Profile update handlers
-  const handleProfileUpdate = async () => {
-    try {
-      setLoading(true);
-      const response = await api.put('/auth/me', {
-        name: profileData.name,
-        phone: profileData.phone
-      });
-      
-      if (response.data.success) {
-        setAlertModal({
-          isOpen: true,
-          title: 'Success',
-          message: 'Profile updated successfully',
-          type: 'success'
-        });
-        setIsEditingProfile(false);
-        fetchUserProfile(); // Refresh data
-      }
-    } catch (err) {
+  } catch (err) {
+    setAlertModal({
+      isOpen: true,
+      title: 'Error',
+      message: err.response?.data?.error || 'Failed to cancel booking',
+      type: 'error'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+ const handleDeleteBooking = async (bookingId) => {
+  if (!window.confirm('Are you sure you want to permanently delete this cancelled booking? This action cannot be undone.')) return;
+  
+  try {
+    setLoading(true);
+    const response = await deleteBooking(bookingId);
+          if (response.success) {
+        // Remove from local state immediately for instant feedback
+        setMyBookings(prev => prev.filter(b => b._id !== bookingId));
+        // Re-fetch hotels to free up deleted dates
+        fetchHotels();
       setAlertModal({
         isOpen: true,
-        title: 'Error',
-        message: err.response?.data?.error || 'Failed to update profile',
-        type: 'error'
+        title: 'Deleted',
+        message: 'Booking has been permanently deleted',
+        type: 'success'
       });
-    } finally {
-      setLoading(false);
+    }
+  } catch (err) {
+    setAlertModal({
+      isOpen: true,
+      title: 'Error',
+      message: err.response?.data?.error || 'Failed to delete booking',
+      type: 'error'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const handleSignOut = async () => {
+    const result = await Swal.fire({
+      title: 'Sign Out?',
+      text: 'Are you sure you want to sign out of your account?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Sign Out',
+      cancelButtonText: 'Cancel',
+      background: '#0f172a',
+      color: '#fff',
+      customClass: {
+        popup: 'rounded-2xl border border-white/10',
+        confirmButton: 'rounded-xl',
+        cancelButton: 'rounded-xl'
+      }
+    });
+
+    if (result.isConfirmed) {
+      onLogout();
     }
   };
-
-  const handlePhotoUpload = async (e) => {
+    const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAlertModal({
+        isOpen: true,
+        title: 'File Too Large',
+        message: 'Profile photo must be less than 5MB',
+        type: 'error'
+      });
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setAlertModal({
+        isOpen: true,
+        title: 'Invalid File',
+        message: 'Please upload an image file',
+        type: 'error'
+      });
+      return;
+    }
 
     const formData = new FormData();
     formData.append('avatar', file);
@@ -954,23 +1670,37 @@ const Dashboard = ({ user, onLogout }) => {
         }
       });
       
-      if (response.data.success) {
-        setProfileData(prev => ({ ...prev, avatar: response.data.data.avatar }));
+           if (response.data.success) {
+        let avatarUrl = response.data.data.avatar;
+        // Convert relative URL to absolute URL
+        if (avatarUrl && !avatarUrl.startsWith('http')) {
+          const baseUrl = api.defaults.baseURL || window.location.origin;
+          avatarUrl = baseUrl.replace(/\/$/, '') + '/' + avatarUrl.replace(/^\//, '');
+        }
+        const newAvatarUrl = avatarUrl + '?t=' + Date.now();
+        console.log('Avatar URL set to:', newAvatarUrl);
+console.log('Avatar URL length:', newAvatarUrl.length);
+        setProfileData(prev => ({ ...prev, avatar: newAvatarUrl }));
         setAlertModal({
           isOpen: true,
           title: 'Success',
           message: 'Profile photo updated',
           type: 'success'
         });
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          localStorage.setItem('user', JSON.stringify({ ...currentUser, avatar: newAvatarUrl }));
+        }
         fetchUserProfile();
       }
     } catch (err) {
       setAlertModal({
         isOpen: true,
         title: 'Error',
-        message: 'Failed to upload photo',
+        message: err.response?.data?.error || err.message || 'Failed to upload photo',
         type: 'error'
       });
+      console.error('Photo upload error:', err);
     } finally {
       setUploadingPhoto(false);
     }
@@ -1001,20 +1731,9 @@ const Dashboard = ({ user, onLogout }) => {
     return filtered;
   }, [searchQuery, selectedGuests, hotels]);
 
-  const handleSearchChange = useCallback((e) => {
-    setSearchQuery(e.target.value);
-  }, []);
+  
 
-  const handleGuestSelect = useCallback((num) => {
-    setSelectedGuests(num);
-    setShowGuestDropdown(false);
-  }, []);
-
-  const toggleGuestDropdown = useCallback(() => {
-    setShowGuestDropdown(prev => !prev);
-  }, []);
-
-  const handleBookNow = useCallback(async (hotel) => {
+    const handleBookNow = useCallback(async (hotel) => {
     setSelectedHotel(hotel);
     setBookingStep('rooms');
     setSelectedRoom(null);
@@ -1022,7 +1741,7 @@ const Dashboard = ({ user, onLogout }) => {
     setModalCheckOut('');
     setBookedDates([]);
     await fetchHotelRooms(hotel.id);
-  }, []);
+  }, [fetchHotelRooms]);
 
   const handleSelectRoom = (room) => {
     if (room.capacity < selectedGuests) return;
@@ -1094,7 +1813,8 @@ const Dashboard = ({ user, onLogout }) => {
       };
       
       const response = await createBooking(bookingData);
-      if (response.success) {
+            if (response.success) {
+        fetchHotels(); // Re-fetch to update booked dates
         setBookingSuccess(true);
         setTimeout(() => {
           setBookingSuccess(false);
@@ -1166,7 +1886,7 @@ const today = new Date(
   now.getDate()
 ).toISOString().split('T')[0];
 
-  const Sidebar = () => (
+   const Sidebar = () => (
     <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-8 cursor-pointer" onClick={() => setActiveTab('browse')}>
         <Diamond className="w-8 h-8 text-cyan-400" />
@@ -1174,21 +1894,28 @@ const today = new Date(
       </div>
       <nav className="space-y-2 flex-1">
         <SidebarItem icon={Home} label="Browse Hotels" active={activeTab === 'browse'} onClick={() => setActiveTab('browse')} />
-        <SidebarItem icon={BookOpen} label="My Bookings" active={activeTab === 'bookings'} onClick={() => setActiveTab('bookings')} />
-        <SidebarItem icon={Heart} label="Favorites" active={activeTab === 'favorites'} onClick={() => setActiveTab('favorites')} />
+        <SidebarItem icon={BookOpen} label="My Bookings" active={activeTab === 'bookings'} onClick={() => setActiveTab('bookings')} badge={myBookings.length} />
+        <SidebarItem icon={Heart} label="Favorites" active={activeTab === 'favorites'} onClick={() => setActiveTab('favorites')} badge={favorites.length} />
         <SidebarItem icon={User} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
       </nav>
       <div className="pt-6 border-t border-white/10">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold overflow-hidden ring-2 ring-white/20">
             {profileData.avatar ? (
-              <img src={profileData.avatar} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              user?.name?.charAt(0) || 'U'
-            )}
+              <img 
+                src={profileData.avatar} 
+                alt="avatar" 
+                className="w-full h-full object-cover" 
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }} 
+              />
+            ) : null}
+            <span className={`text-white ${profileData.avatar ? 'hidden' : 'flex'}`}>{(profileData?.name || user?.name)?.charAt(0) || 'U'}</span>
           </div>
           <div>
-            <p className="font-medium text-sm">{user?.name || 'User'}</p>
+            <p className="font-medium text-sm">{profileData?.name || user?.name || 'User'}</p>
             <p className="text-xs text-gray-400">{user?.email || 'user@example.com'}</p>
             {profileData.phone && (
               <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
@@ -1197,19 +1924,38 @@ const today = new Date(
             )}
           </div>
         </div>
-        <button onClick={onLogout} className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm">
+        <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
+          <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {myBookings.length}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {favorites.length}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {
+            hotels.reduce((acc, hotel) => {
+              const userReviews = hotel.reviews?.filter(r => r.user?._id === user?._id).length || 0;
+              return acc + userReviews;
+            }, 0)
+          }</span>
+        </div>
+        <button onClick={handleSignOut} className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm">
           <LogOut className="w-4 h-4" /> Sign Out
         </button>
       </div>
     </div>
   );
 
-  const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+   const SidebarItem = ({ icon: Icon, label, active, onClick, badge }) => (
+    <button onClick={onClick} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
       active ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 text-cyan-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'
     }`}>
-      <Icon className="w-5 h-5" />
-      <span className="font-medium">{label}</span>
+      <div className="flex items-center gap-3">
+        <Icon className="w-5 h-5" />
+        <span className="font-medium">{label}</span>
+      </div>
+      {badge > 0 && (
+        <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-0.5 rounded-full font-medium">
+          {badge}
+        </span>
+      )}
     </button>
   );
 
@@ -1317,27 +2063,26 @@ const today = new Date(
                     </div>
 
                     <div className="flex justify-end gap-3">
-                      {booking.status === 'cancelled' && (
-                        <button 
-                          onClick={() => handleDeleteBooking(booking._id)}
-                          disabled={loading}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg transition-colors text-sm font-medium"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete Booking
-                        </button>
-                      )}
-                      {booking.status !== 'cancelled' && (
-                        <button 
-                          onClick={() => handleCancelBooking(booking._id)}
-                          disabled={loading}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm font-medium"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Cancel Booking
-                        </button>
-                      )}
-                    </div>
+  {booking.status === 'cancelled' ? (
+    <button 
+      onClick={() => handleDeleteBooking(booking._id)}
+      disabled={loading}
+      className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/40 hover:scale-105 active:scale-95 text-red-400 border border-red-500/30 rounded-lg transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-red-500/20"
+    >
+      <Trash2 className="w-4 h-4" />
+      {loading ? 'Deleting...' : 'Delete Booking'}
+    </button>
+  ) : (
+    <button 
+      onClick={() => handleCancelBooking(booking._id)}
+      disabled={loading}
+      className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/25 hover:scale-105 active:scale-95 text-red-400 rounded-lg transition-all duration-200 text-sm font-medium"
+    >
+      <Trash2 className="w-4 h-4" />
+      {loading ? 'Cancelling...' : 'Cancel Booking'}
+    </button>
+  )}
+</div>
                   </div>
                 </div>
               </div>
@@ -1370,7 +2115,7 @@ const today = new Date(
             const maxCap = hotel.maxGuests || 4;
             
             return (
-              <HotelCard 
+                            <HotelCard 
                 key={hotel._id} 
                 hotel={{
                   id: hotel._id,
@@ -1385,13 +2130,20 @@ const today = new Date(
                   maxGuests: maxCap,
                   roomTypes: ['Standard', 'Deluxe', 'Suite'],
                   reviews: hotel.reviews || [],
-                  bookedDates: hotel.bookedDates || []
+                                    bookedDates: hotel.bookedDates || [],
+                  bookedDatesByRoomType: hotel.bookedDatesByRoomType || {}
                  
                 }} 
                 onBookNow={handleBookNow}
                 isHovered={hoveredHotel === hotel._id}
                 onHover={() => setHoveredHotel(hotel._id)}
                 onLeave={() => setHoveredHotel(null)}
+                handleToggleFavorite={handleToggleFavorite}
+                favoriteIds={favoriteIds}
+                isAdmin={isAdmin}
+                handleDeleteHotel={handleDeleteHotel}
+                setReviewModal={setReviewModal}
+                setReviewsModal={setReviewsModal}
               />
             );
           })}
@@ -1434,7 +2186,33 @@ const today = new Date(
 
       const response = await api.post('/bookings', bookingPayload);
 
-      if (response.data.success) {
+           if (response.data.success) {
+        // ✅ Immediately add to myBookings so it shows without refresh
+        const newBooking = {
+          _id: response.data.data._id || response.data.data.id,
+          hotel: {
+            _id: selectedHotel.id,
+            name: selectedHotel.name,
+            location: {
+              city: selectedHotel.location.split(',')[0]?.trim(),
+              country: selectedHotel.location.split(',')[1]?.trim()
+            },
+            images: [selectedHotel.image]
+          },
+          room: {
+            type: selectedRoom.type,
+            roomNumber: selectedRoom.roomNumber
+          },
+          checkInDate: modalCheckIn,
+          checkOutDate: modalCheckOut,
+          guests: selectedGuests,
+          totalPrice: calculatedTotal,
+          status: 'confirmed',
+          createdAt: new Date().toISOString()
+        };
+        
+        setMyBookings(prev => [newBooking, ...prev]);
+        
         // Build receipt data
         setReceiptData({
           ...response.data.data,
@@ -1675,7 +2453,7 @@ const today = new Date(
       {showReceipt && receiptData && (
         <BookingReceipts
           booking={receiptData}
-          onClose={() => {
+                  onClose={() => {
             setShowReceipt(false);
             setReceiptData(null);
             setSelectedHotel(null);
@@ -1685,6 +2463,8 @@ const today = new Date(
             setModalCheckOut('');
             setBookedDates([]);
             setActiveTab('bookings');
+            // ✅ Re-fetch to ensure server state matches
+            fetchMyBookings();
           }}
         />
       )}
@@ -1692,470 +2472,11 @@ const today = new Date(
   );
 };
 
-  const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave }) => {
-    const isFav = favoriteIds.has(hotel.id);
     
-    return (
-      <div 
-        className="group bg-slate-900/50 rounded-2xl overflow-visible border border-white/10 hover:border-cyan-500/50 transition-all duration-500 hover:shadow-xl hover:shadow-cyan-500/10 relative"
-        onMouseEnter={onHover}
-        onMouseLeave={onLeave}
-      >
-        <div className="relative h-48 overflow-hidden z-0">
-          <img src={hotel.image} alt={hotel.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-          
-          <button
-            onClick={(e) => handleToggleFavorite(hotel.id, e)}
-            className="absolute top-4 left-4 p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors z-10"
-          >
-            <HeartIcon className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-          </button>
 
-          {isAdmin && (
-            <button
-              onClick={(e) => handleDeleteHotel(hotel.id, e)}
-              className="absolute top-4 right-16 p-2 rounded-full bg-red-500/50 backdrop-blur-sm hover:bg-red-500/70 transition-colors z-10"
-              title="Delete Hotel"
-            >
-              <Trash className="w-5 h-5 text-white" />
-            </button>
-          )}
+    // BROWSE HOTELS - Moved outside Dashboard to prevent re-mounting on search
 
-          <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1">
-            <StarRating rating={Math.round(hotel.rating)} size="sm" />
-            <span className="font-bold text-sm">{hotel.rating}</span>
-            {hotel.reviewCount > 0 && (
-              <span className="text-xs text-gray-400">({hotel.reviewCount})</span>
-            )}
-          </div>
-          
-          {isHovered && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center transition-all duration-300">
-              <div className="text-center p-4">
-                <Users className="w-8 h-8 text-cyan-400 mx-auto mb-2" />
-                <p className="text-lg font-bold mb-1">{hotel.maxGuests} Persons</p>
-                <p className="text-sm text-gray-300">Maximum capacity per room</p>
-                <div className="mt-3 flex flex-wrap justify-center gap-1">
-                  {hotel.roomTypes.slice(0, 2).map((type, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-white/20 rounded text-xs">
-                      {type}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="p-5">
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <h3 className="font-bold text-lg group-hover:text-cyan-400 transition-colors">{hotel.name}</h3>
-              <div className="flex items-center gap-1 text-gray-400 text-sm">
-                <MapPin className="w-4 h-4" /> {hotel.location}
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-400 bg-white/5 px-2 py-1 rounded-lg">
-              <Users className="w-3 h-3" />
-              <span>Max {hotel.maxGuests}</span>
-            </div>
-          </div>
-          <p className="text-gray-400 text-sm mb-4 line-clamp-2">{hotel.description}</p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {hotel.amenities.map((amenity, idx) => (
-              <span key={idx} className="px-2 py-1 bg-white/5 rounded-md text-xs text-gray-300 border border-white/10">
-                {amenity}
-              </span>
-            ))}
-          </div>
-
-         {hotel.bookedDates && hotel.bookedDates.length > 0 && (
-  <div className="mb-3 p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-    <div className="flex items-center gap-1 mb-1">
-      <Calendar className="w-3 h-3 text-red-400" />
-      <span className="text-xs text-red-300">Booked Dates:</span>
-    </div>
-
-    <div className="flex flex-wrap gap-1">
-      {hotel.bookedDates.slice(0, 5).map((dateStr, idx) => {
-        // dateStr is now "YYYY-MM-DD" format
-        const [y, m, d] = dateStr.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d);
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = dateObj.toLocaleString('en-GB', { month: 'short' });
-        
-        return (
-          <span key={idx} className="text-[10px] px-2 py-1 bg-red-500/20 text-red-300 rounded">
-            {day} {month}
-          </span>
-        );
-      })}
-    </div>
-
-    {hotel.bookedDates.length > 5 && (
-      <p className="text-[10px] text-gray-400 mt-1">
-        +{hotel.bookedDates.length - 5} more
-      </p>
-    )}
-  </div>
-)}
-          
-          {/* Show recent reviews preview */}
-          {hotel.reviews && hotel.reviews.length > 0 && (
-            <div className="mb-3 p-2 bg-white/5 rounded-lg border border-white/5">
-              <div className="flex items-center gap-1 mb-1">
-                <MessageSquare className="w-3 h-3 text-cyan-400" />
-                <span className="text-xs text-gray-400">Latest review:</span>
-              </div>
-              <p className="text-xs text-gray-300 italic line-clamp-1">"{hotel.reviews[hotel.reviews.length - 1].comment}"</p>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-500">
-                  — {hotel.reviews[hotel.reviews.length - 1].user?.name || 'Guest'}
-                </span>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setReviewsModal({ isOpen: true, hotel });
-                  }}
-                  className="text-xs text-cyan-400 hover:text-cyan-300"
-                >
-                  View all {hotel.reviews.length} reviews
-                </button>
-              </div>
-            </div>
-          )}
-          
-          <div className="flex justify-between items-center pt-4 border-t border-white/10">
-            <div>
-              <span className="text-2xl font-bold text-cyan-400">₱{hotel.price}</span>
-              <span className="text-gray-500 text-sm">/night</span>
-            </div>
-            
-            <div className="flex gap-2">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setReviewModal({ isOpen: true, hotel });
-                }}
-                className="px-3 py-2 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Review
-              </button>
-              
-              <button 
-                onClick={() => onBookNow(hotel)}
-                className="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white"
-              >
-                Book Now
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const BrowseHotels = () => (
-    <div className="space-y-6">
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-4 border border-white/10 overflow-visible">
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search hotels or destinations..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </div>
-
-          <div className="relative z-[100]">
-            <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1 ml-1">Guests</label>
-            <div className="relative">
-              <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400 pointer-events-none" />
-              <button
-                type="button"
-                onClick={toggleGuestDropdown}
-                className="w-full pl-12 pr-10 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white text-left flex items-center justify-between hover:bg-slate-800/50 transition-colors"
-              >
-                <span>{selectedGuests} Guests</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showGuestDropdown ? 'rotate-180' : ''}`} />
-              </button>
-              
-              {showGuestDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-white/10 rounded-xl shadow-xl max-h-60 overflow-y-auto z-[9999]">
-                  {guestOptions.map(num => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => handleGuestSelect(num)}
-                      className={`w-full px-4 py-3 text-left hover:bg-white/10 transition-colors flex items-center justify-between ${
-                        selectedGuests === num ? 'bg-cyan-500/20 text-cyan-400' : 'text-white'
-                      }`}
-                    >
-                      <span>{num} Guests</span>
-                      {selectedGuests === num && <Check className="w-4 h-4" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-between items-center">
-        <div className="text-gray-400">
-          Showing <span className="text-white font-bold">{filteredHotels.length}</span> properties
-          <span className="text-cyan-400 text-sm ml-2">(for {selectedGuests} guests)</span>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg hover:bg-white/10 transition-colors">
-          <Filter className="w-4 h-4" /> Filters
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredHotels.map(hotel => (
-            <HotelCard 
-              key={hotel.id} 
-              hotel={hotel} 
-              onBookNow={handleBookNow}
-              isHovered={hoveredHotel === hotel.id}
-              onHover={() => setHoveredHotel(hotel.id)}
-              onLeave={() => setHoveredHotel(null)}
-            />
-          ))}
-        </div>
-      )}
-      
-      {filteredHotels.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400 mb-2">No hotels found for {selectedGuests} guests</p>
-          <p className="text-gray-500 text-sm">Try selecting fewer guests or check back later</p>
-        </div>
-      )}
-    </div>
-  );
-
-  // PROFILE COMPONENT
-  // PROFILE COMPONENT
-const Profile = () => {
-  // Separate local form state from main profile state
-  const [editForm, setEditForm] = useState({
-    name: '',
-    phone: ''
-  });
   
-  // Initialize edit form when entering edit mode
-  useEffect(() => {
-    if (isEditingProfile) {
-      setEditForm({
-        name: profileData.name || '',
-        phone: profileData.phone || ''
-      });
-    }
-  }, [isEditingProfile]);
-
-  // Handle input changes without losing focus
-  const handleInputChange = (field, value) => {
-    setEditForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // Save changes only when button is clicked
-  const handleSaveChanges = async () => {
-    try {
-      setLoading(true);
-      const response = await api.put('/auth/me', {
-        name: editForm.name,
-        phone: editForm.phone
-      });
-      
-      if (response.data.success) {
-        // Update main state only after successful save
-        setProfileData(prev => ({
-          ...prev,
-          name: editForm.name,
-          phone: editForm.phone
-        }));
-        
-        setAlertModal({
-          isOpen: true,
-          title: 'Success',
-          message: 'Profile updated successfully',
-          type: 'success'
-        });
-        setIsEditingProfile(false);
-        
-        // Refresh user data in background
-        fetchUserProfile();
-      }
-    } catch (err) {
-      setAlertModal({
-        isOpen: true,
-        title: 'Error',
-        message: err.response?.data?.error || 'Failed to update profile',
-        type: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">My Profile</h2>
-      <p className="text-gray-400 text-sm">Manage your account</p>
-      
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 max-w-2xl border border-white/10">
-        {/* Avatar Section */}
-        <div className="flex items-center gap-6 mb-8">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-3xl font-bold overflow-hidden">
-              {profileData.avatar ? (
-                <img src={profileData.avatar} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                profileData.name?.charAt(0) || 'U'
-              )}
-            </div>
-            <label className="absolute bottom-0 right-0 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center cursor-pointer border border-white/20 hover:bg-slate-700 transition-colors">
-              <input 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                onChange={handlePhotoUpload}
-                disabled={uploadingPhoto}
-              />
-              {uploadingPhoto ? (
-                <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-              ) : (
-                <Camera className="w-4 h-4 text-white" />
-              )}
-            </label>
-          </div>
-          
-          <div className="flex-1">
-            <h3 className="text-xl font-bold">{profileData.name || 'User'}</h3>
-            <p className="text-gray-400 text-sm">{profileData.email}</p>
-            <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
-              <Phone className="w-3 h-3" /> {profileData.phone || 'No phone added'}
-            </p>
-          </div>
-          
-          <button
-            onClick={() => setIsEditingProfile(!isEditingProfile)}
-            className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
-          >
-            {isEditingProfile ? 'Cancel' : 'Edit Profile'}
-          </button>
-        </div>
-
-        {isEditingProfile ? (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Full Name</label>
-              <input
-                type="text"
-                value={editForm.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                autoFocus
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Email</label>
-              <input
-                type="email"
-                value={profileData.email}
-                disabled
-                className="w-full p-3 bg-slate-800/50 border border-white/10 rounded-xl text-gray-500 cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Phone Number</label>
-              <input
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="09123456789"
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-              />
-            </div>
-            
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setIsEditingProfile(false)}
-                className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveChanges}
-                disabled={loading}
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Member Since</p>
-                <p className="font-medium">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</p>
-              </div>
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Role</p>
-                <p className="font-medium capitalize">{user?.role || 'User'}</p>
-              </div>
-            </div>
-            
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <div className="flex justify-between items-center mb-3">
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Account Stats</p>
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-cyan-400">{myBookings.length}</p>
-                  <p className="text-xs text-gray-400">Bookings</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-purple-400">{favorites.length}</p>
-                  <p className="text-xs text-gray-400">Favorites</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-green-400">
-                    {hotels.reduce((acc, hotel) => {
-                      const userReviews = hotel.reviews?.filter(r => r.user?._id === user?._id).length || 0;
-                      return acc + userReviews;
-                    }, 0)}
-                  </p>
-                  <p className="text-xs text-gray-400">Reviews</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
   // MAIN RENDER
   return (
@@ -2188,10 +2509,51 @@ const Profile = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'browse' && <BrowseHotels />}
+                    {activeTab === 'browse' && <BrowseHotels 
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedGuests={selectedGuests}
+            setSelectedGuests={setSelectedGuests}
+            showGuestDropdown={showGuestDropdown}
+            setShowGuestDropdown={setShowGuestDropdown}
+            filteredHotels={filteredHotels}
+            loading={loading}
+            handleBookNow={handleBookNow}
+            hoveredHotel={hoveredHotel}
+            setHoveredHotel={setHoveredHotel}
+            handleToggleFavorite={handleToggleFavorite}
+            favoriteIds={favoriteIds}
+            isAdmin={isAdmin}
+            handleDeleteHotel={handleDeleteHotel}
+            setReviewModal={setReviewModal}
+            setReviewsModal={setReviewsModal}
+            guestOptions={guestOptions}
+          />}
           {activeTab === 'bookings' && <MyBookings />}
           {activeTab === 'favorites' && <Favorites />}
-          {activeTab === 'profile' && <Profile />}
+          {activeTab === 'profile' && (
+   <Profile 
+    user={user}
+    profileData={profileData}
+    setProfileData={setProfileData}
+    isEditingProfile={isEditingProfile}
+    setIsEditingProfile={setIsEditingProfile}
+    uploadingPhoto={uploadingPhoto}
+    setUploadingPhoto={setUploadingPhoto}
+    editForm={editForm}
+    setEditForm={setEditForm}
+    loading={loading}
+    setLoading={setLoading}
+    api={api}
+    authService={authService}
+    setAlertModal={setAlertModal}
+    fetchUserProfile={fetchUserProfile}
+    myBookings={myBookings}
+    favorites={favorites}
+    hotels={hotels}
+    handlePhotoUpload={handlePhotoUpload}
+  />
+)}
         </main>
       </div>
 

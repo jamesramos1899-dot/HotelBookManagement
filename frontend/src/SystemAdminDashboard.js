@@ -2,15 +2,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Building2, Calendar, Star, 
-  LogOut, Plus, Edit2, Trash2, X, Search, DollarSign, 
+  LogOut, Plus, Trash2, X, Search, DollarSign, 
   TrendingUp, AlertCircle, Check, MapPin, Phone, Mail,
-  MessageSquare, ThumbsUp, Flag, Eye, User, CheckCircle, XCircle
+  MessageSquare, ThumbsUp, Flag, Eye, User, CheckCircle, XCircle,
+  Users, Shield, Crown
 } from 'lucide-react';
 import { getHotels, deleteHotel } from './services/hotelService';
 import { getAllRooms } from './services/roomService';
 import { getMyBookings } from './services/bookingService';
 import api from './services/api';
 import Swal from 'sweetalert2';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // ALERT MODAL
 const AlertModal = ({ isOpen, onClose, title, message, type = 'error' }) => {
@@ -318,21 +321,683 @@ const ReviewsModal = ({ showReviewsModal, setShowReviewsModal, selectedHotelForR
     </div>
   );
 };
+// USER MODAL
+const UserModal = ({ showUserModal, setShowUserModal, editingUser, userForm, setUserForm, loading, handleUpdateUser }) => {
+  if (!showUserModal) return null;
 
+  const updateForm = (field, value) => {
+    setUserForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-slate-900 rounded-3xl p-8 max-w-lg w-full border border-white/10 shadow-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold">Edit User</h3>
+          <button onClick={() => setShowUserModal(false)} className="p-2 hover:bg-white/10 rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleUpdateUser} className="space-y-5">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Full Name</label>
+            <input type="text" value={userForm.name} onChange={(e) => updateForm('name', e.target.value)}
+              className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none" required />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Email</label>
+            <input type="email" value={userForm.email} onChange={(e) => updateForm('email', e.target.value)}
+              className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none" required />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Phone</label>
+            <input type="tel" value={userForm.phone} onChange={(e) => updateForm('phone', e.target.value)}
+              className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Role</label>
+            <select value={userForm.role} onChange={(e) => updateForm('role', e.target.value)}
+              className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none">
+              <option value="user">User (Guest)</option>
+              <option value="hotel_admin">Hotel Admin</option>
+              <option value="system_admin">System Admin</option>
+            </select>
+          </div>
+
+          {userForm.role === 'hotel_admin' && (
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+              <input type="checkbox" id="isApproved" checked={userForm.isApproved} 
+                onChange={(e) => updateForm('isApproved', e.target.checked)}
+                className="w-5 h-5 rounded border-white/10 bg-slate-800 text-cyan-500 focus:ring-cyan-500" />
+              <label htmlFor="isApproved" className="text-sm text-gray-300">Approved / Active</label>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={() => setShowUserModal(false)} 
+              className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} 
+              className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50">
+              {loading ? 'Saving...' : 'Update User'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+ const SidebarItem = ({ icon: Icon, label, active, onClick, badge }) => (
+    <button onClick={onClick} 
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
+        active ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 text-cyan-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+      }`}>
+      <div className="flex items-center gap-3">
+        <Icon className="w-5 h-5" />
+        <span className="font-medium">{label}</span>
+      </div>
+      {badge > 0 && <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded-full">{badge}</span>}
+    </button>
+  );
+const Sidebar = ({ activeTab, setActiveTab, pendingPartners, allUsers, stats, user, handleSignOut }) => (
+    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
+      <div className="flex items-center gap-2 mb-8">
+        <Building2 className="w-8 h-8 text-cyan-400" />
+        <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">System Admin</span>
+      </div>
+      
+      <nav className="space-y-2 flex-1">
+        <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+        <SidebarItem icon={Building2} label="Manage Hotels" active={activeTab === 'hotels'} onClick={() => setActiveTab('hotels')} />
+                <SidebarItem icon={User} label="Pending Partners" active={activeTab === 'partners'} onClick={() => setActiveTab('partners')} badge={pendingPartners.length} />
+        <SidebarItem icon={Users} label="Manage Users" active={activeTab === 'users'} onClick={() => setActiveTab('users')} badge={allUsers.length} />
+        <SidebarItem icon={MessageSquare} label="All Reviews" active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} badge={stats.totalReviews} />
+        <SidebarItem icon={TrendingUp} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+      </nav>
+
+      <div className="pt-6 border-t border-white/10">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold">
+            {user?.name?.charAt(0) || 'S'}
+          </div>
+          <div>
+            <p className="font-medium text-sm">{user?.name || 'System Admin'}</p>
+            <p className="text-xs text-purple-400">System Administrator</p>
+          </div>
+        </div>
+                <button onClick={handleSignOut} className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm w-full">
+          <LogOut className="w-4 h-4" /> Sign Out
+        </button>
+      </div>
+    </div>
+  );
+   const StatCard = ({ icon: Icon, label, value, color }) => {
+    const colors = {
+      cyan: 'from-cyan-500/20 to-cyan-600/20 border-cyan-500/30 text-cyan-400',
+      purple: 'from-purple-500/20 to-purple-600/20 border-purple-500/30 text-purple-400',
+      pink: 'from-pink-500/20 to-pink-600/20 border-pink-500/30 text-pink-400',
+      green: 'from-green-500/20 to-green-600/20 border-green-500/30 text-green-400'
+    };
+    return (
+      <div className={`bg-gradient-to-br ${colors[color]} backdrop-blur-xl rounded-2xl p-6 border`}>
+        <Icon className="w-8 h-8 mb-3" />
+        <p className="text-gray-400 text-sm mb-1">{label}</p>
+        <p className="text-3xl font-bold">{value}</p>
+      </div>
+    );
+  };
+  const DashboardView = ({ stats, hotels, allReviews }) => (
+  <div className="space-y-6">
+    <h2 className="text-2xl font-bold">System Dashboard</h2>
+    
+    <div className="grid md:grid-cols-2 gap-4">
+      <StatCard icon={Building2} label="Total Hotels" value={stats.totalHotels} color="cyan" />
+      <StatCard icon={Star} label="Avg Rating" value={`${stats.averageRating}★`} color="pink" />
+    </div>
+
+    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+      <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+        <Star className="w-5 h-5 text-yellow-400" /> Reviews Overview
+      </h3>
+      {hotels.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">No hotels available.</p>
+      ) : (
+        <div className="space-y-4">
+          {hotels.map(hotel => (
+            <div key={hotel._id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10 hover:border-cyan-500/30 transition-all">
+              <img 
+                src={hotel.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80'} 
+                alt={hotel.name}
+                className="w-16 h-16 object-cover rounded-lg"
+              />
+              <div className="flex-1">
+                <h4 className="font-bold text-white">{hotel.name}</h4>
+                <p className="text-gray-400 text-sm flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> {hotel.location?.city}, {hotel.location?.country}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-1 text-yellow-400 font-bold text-lg">
+                  <Star className="w-5 h-5 fill-yellow-400" />
+                  {hotel.averageRating || hotel.starRating || 0}
+                </div>
+                <p className="text-gray-400 text-sm">{hotel.reviewCount || 0} reviews</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+      <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+        <MessageSquare className="w-5 h-5 text-cyan-400" /> Recent Reviews
+      </h3>
+      <div className="space-y-3 max-h-80 overflow-y-auto">
+        {allReviews.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">No reviews yet.</p>
+        ) : (
+          allReviews.slice(0, 10).map((review, idx) => (
+            <div key={idx} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl">
+              <img 
+                src={review.hotelImage || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80'} 
+                alt={review.hotelName}
+                className="w-12 h-12 object-cover rounded-lg"
+              />
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium text-sm text-cyan-400">{review.hotelName}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-[10px] font-bold">
+                        {review.user?.name?.charAt(0) || 'U'}
+                      </div>
+                      <span className="text-xs text-gray-300">{review.user?.name || 'Unknown'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-yellow-400 text-sm font-bold">
+                    <Star className="w-4 h-4 fill-yellow-400" />
+                    {review.rating}
+                  </div>
+                </div>
+                <p className="text-gray-300 text-sm mt-1 line-clamp-2">{review.comment}</p>
+                <p className="text-gray-500 text-xs mt-1">{new Date(review.createdAt).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+);
+const HotelsView = ({ hotels, openViewReviews, openEditHotel, handleDeleteHotel }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredHotels = useMemo(() => hotels.filter(h => 
+    h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    h.location.city.toLowerCase().includes(searchQuery.toLowerCase())
+  ), [hotels, searchQuery]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Manage Hotels</h2>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input type="text" placeholder="Search hotels..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white" />
+      </div>
+
+      <div className="grid gap-4">
+        {filteredHotels.map(hotel => (
+          <div key={hotel._id} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-cyan-500/30 transition-all">
+            <div className="flex flex-col md:flex-row gap-6">
+              <img src={hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80'} alt={hotel.name}
+                className="w-full md:w-48 h-32 object-cover rounded-xl" />
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-2">
+                                   <div>
+                    <h3 className="text-xl font-bold">{hotel.name}</h3>
+                    <p className="text-gray-400 text-sm flex items-center gap-1">
+                      <MapPin className="w-4 h-4" /> {hotel.location.city}, {hotel.location.country}
+                    </p>
+                    <p className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
+                      <User className="w-3 h-3" /> Owner: {hotel.owner?.name || 'Unknown'}
+                    </p>
+                  </div>
+                                    <div className="flex gap-2">
+                    <button onClick={() => openViewReviews(hotel)} className="p-2 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors" title="View Reviews">
+                      <Star className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => handleDeleteHotel(hotel._id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors" title="Delete">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <p className="text-gray-400 text-sm mb-3 line-clamp-2">{hotel.description}</p>
+                
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {hotel.amenities?.slice(0, 5).map((amenity, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-white/5 rounded text-xs text-gray-300">{amenity}</span>
+                  ))}
+                  {hotel.amenities?.length > 5 && <span className="px-2 py-1 bg-white/5 rounded text-xs text-gray-400">+{hotel.amenities.length - 5} more</span>}
+                </div>
+
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1 text-yellow-400">
+                    <Star className="w-4 h-4 fill-yellow-400" /> {hotel.averageRating || hotel.starRating} ({hotel.reviewCount || 0} reviews)
+                  </span>
+                  <span className="text-gray-600">•</span>
+                  <span className="text-cyan-400 font-medium">{hotel.starRating}-Star</span>
+                  <span className="text-gray-600">•</span>
+                  <span className="text-purple-400 font-medium">{hotel.roomCount || 0} rooms</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+const PartnersView = ({ pendingPartners, handleRejectPartner, handleApprovePartner }) => (
+  <div className="space-y-6">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold">Pending Hotel Partners</h2>
+      <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-full text-sm">{pendingPartners.length} Pending</span>
+    </div>
+
+    {pendingPartners.length === 0 ? (
+      <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/10">
+        <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
+        <p className="text-gray-400">No pending partner applications.</p>
+      </div>
+    ) : (
+      <div className="grid gap-4">
+        {pendingPartners.map(partner => (
+          <div key={partner.id} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-lg font-bold">
+                  {partner.name?.charAt(0) || 'P'}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{partner.name}</h3>
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mt-1">
+                    <span className="flex items-center gap-1"><Mail className="w-4 h-4" /> {partner.email}</span>
+                    {partner.phone && <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {partner.phone}</span>}
+                    <span className="flex items-center gap-1"><Building2 className="w-4 h-4" /> {partner.hotelName || 'N/A'}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Applied: {new Date(partner.appliedAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button onClick={() => handleRejectPartner(partner.id)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors">
+                  <XCircle className="w-4 h-4" /> Reject
+                </button>
+                <button onClick={() => handleApprovePartner(partner)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 rounded-xl hover:bg-green-500/20 transition-colors">
+                  <CheckCircle className="w-4 h-4" /> Approve & Create Account
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+const ReviewsView = ({ stats, allReviews }) => {
+  const [reviewFilter, setReviewFilter] = useState('all');
+  const [searchReview, setSearchReview] = useState('');
+
+  const filteredReviews = allReviews.filter(review => {
+    const matchesSearch = 
+      review.hotelName?.toLowerCase().includes(searchReview.toLowerCase()) ||
+      review.user?.name?.toLowerCase().includes(searchReview.toLowerCase()) ||
+      review.comment?.toLowerCase().includes(searchReview.toLowerCase());
+    if (reviewFilter === 'positive') return matchesSearch && review.rating >= 4;
+    if (reviewFilter === 'negative') return matchesSearch && review.rating <= 2;
+    return matchesSearch;
+  });
+
+  const reviewStats = {
+    total: allReviews.length,
+    fiveStar: allReviews.filter(r => r.rating === 5).length,
+    fourStar: allReviews.filter(r => r.rating === 4).length,
+    threeStar: allReviews.filter(r => r.rating === 3).length,
+    twoStar: allReviews.filter(r => r.rating === 2).length,
+    oneStar: allReviews.filter(r => r.rating === 1).length,
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">All Reviews & Experiences</h2>
+        <div className="flex gap-2">
+          <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 rounded-full text-sm">{stats.totalReviews} Total</span>
+          <span className="px-3 py-1 bg-purple-500/10 text-purple-400 rounded-full text-sm">{stats.averageRating}★ Avg</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-5 gap-4">
+        {[5, 4, 3, 2, 1].map(stars => (
+          <div key={stars} className="bg-white/5 rounded-xl p-4 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              <span className="font-bold">{stars}</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-400">
+              {stars === 5 ? reviewStats.fiveStar : stars === 4 ? reviewStats.fourStar : stars === 3 ? reviewStats.threeStar : stars === 2 ? reviewStats.twoStar : reviewStats.oneStar}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-4 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input type="text" placeholder="Search reviews..." value={searchReview} onChange={(e) => setSearchReview(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white" />
+        </div>
+        <select value={reviewFilter} onChange={(e) => setReviewFilter(e.target.value)}
+          className="px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none">
+          <option value="all">All Reviews</option>
+          <option value="positive">Positive (4-5★)</option>
+          <option value="negative">Negative (1-2★)</option>
+        </select>
+      </div>
+
+      <div className="space-y-4">
+        {filteredReviews.map((review, idx) => (
+          <div key={idx} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-cyan-500/30 transition-all">
+            <div className="flex flex-col md:flex-row gap-6">
+              <img src={review.hotelImage || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80'} alt={review.hotelName}
+                className="w-full md:w-32 h-24 object-cover rounded-xl" />
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg text-cyan-400">{review.hotelName}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-xs font-bold">
+                        {review.user?.name?.charAt(0) || 'U'}
+                      </div>
+                      <span className="text-sm text-gray-300">{review.user?.name || 'Unknown User'}</span>
+                      {review.user?.phone && <span className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3" /> {review.user.phone}</span>}
+                      <span className="text-gray-600">•</span>
+                      <span className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${
+                    review.rating >= 4 ? 'bg-green-500/20 text-green-400' : review.rating === 3 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    <Star className="w-4 h-4 fill-current" />
+                    <span className="font-bold">{review.rating}.0</span>
+                  </div>
+                </div>
+                <p className="text-gray-300 leading-relaxed mb-3">{review.comment}</p>
+                <div className="flex items-center gap-4">
+                  <button className="flex items-center gap-1 text-sm text-gray-400 hover:text-cyan-400 transition-colors"><ThumbsUp className="w-4 h-4" /> Helpful</button>
+                  <button className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-400 transition-colors"><Flag className="w-4 h-4" /> Report</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filteredReviews.length === 0 && (
+          <div className="text-center py-12">
+            <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">No reviews found matching your criteria.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+const UsersView = ({ allUsers, getRoleBadge, openEditUser, handleDeleteUser }) => {
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+
+  const filteredUsers = useMemo(() => allUsers.filter(u => 
+    u.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+    u.role?.toLowerCase().includes(userSearchQuery.toLowerCase())
+  ), [allUsers, userSearchQuery]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Manage Users</h2>
+        <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-full text-sm">{allUsers.length} Total</span>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input type="text" placeholder="Search users by name, email, or role..." 
+          value={userSearchQuery} onChange={(e) => setUserSearchQuery(e.target.value)}
+          className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white" />
+      </div>
+
+      <div className="grid gap-4">
+        {filteredUsers.map(userData => {
+          const roleBadge = getRoleBadge(userData.role);
+          const RoleIcon = roleBadge.icon;
+          
+          return (
+            <div key={userData._id} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-cyan-500/30 transition-all">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-lg font-bold">
+                    {userData.name?.charAt(0) || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">{userData.name}</h3>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mt-1">
+                      <span className="flex items-center gap-1"><Mail className="w-4 h-4" /> {userData.email}</span>
+                      {userData.phone && <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {userData.phone}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs border ${roleBadge.color}`}>
+                        <RoleIcon className="w-3 h-3" /> {roleBadge.label}
+                      </span>
+                      {userData.role === 'hotel_admin' && (
+                        <span className={`px-3 py-1 rounded-full text-xs border ${
+                          userData.isApproved 
+                            ? 'bg-green-500/10 text-green-400 border-green-500/30' 
+                            : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                        }`}>
+                          {userData.isApproved ? 'Approved' : 'Pending'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                               <div className="flex gap-2">
+                  <button onClick={() => handleDeleteUser(userData._id)}
+                    className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors" title="Delete">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        
+        {filteredUsers.length === 0 && (
+          <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/10">
+            <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">No users found.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};const ReportsView = ({ stats, hotels, allReviews, allUsers, bookings, pendingPartners }) => {
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.text('System Administration Report', 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Platform Stats
+    doc.setFontSize(14);
+    doc.text('Platform Overview', 14, 45);
+    doc.setFontSize(11);
+    doc.text(`Total Hotels: ${stats.totalHotels}`, 14, 55);
+    doc.text(`Total Rooms: ${stats.totalRooms}`, 14, 63);
+    doc.text(`Total Reviews: ${stats.totalReviews}`, 14, 71);
+    doc.text(`Average Rating: ${stats.averageRating} stars`, 14, 79);
+    doc.text(`Pending Partners: ${pendingPartners.length}`, 14, 87);
+    
+    // Hotels Table
+    doc.setFontSize(14);
+    doc.text('All Hotels', 14, 102);
+    
+    const hotelData = hotels.map(h => [
+      h.name,
+      h.location?.city || '',
+      h.starRating,
+      h.averageRating || h.starRating || 0,
+      h.reviewCount || 0,
+      h.roomCount || 0
+    ]);
+    
+    autoTable(doc, {
+      startY: 108,
+      head: [['Hotel Name', 'City', 'Stars', 'Rating', 'Reviews', 'Rooms']],
+      body: hotelData,
+      theme: 'striped',
+      headStyles: { fillColor: [6, 182, 212] }
+    });
+    
+    // Users Table
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.text('User Accounts', 14, finalY);
+    
+    const userData = allUsers.map(u => [
+      u.name,
+      u.email,
+      u.role,
+      u.isApproved ? 'Active' : 'Pending'
+    ]);
+    
+    autoTable(doc, {
+      startY: finalY + 6,
+      head: [['Name', 'Email', 'Role', 'Status']],
+      body: userData,
+      theme: 'striped',
+      headStyles: { fillColor: [168, 85, 247] }
+    });
+    
+    doc.save(`system-report-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Generate System Report</h2>
+        <button onClick={generatePDF} className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-bold text-white hover:shadow-lg transition-all">
+          <TrendingUp className="w-5 h-5" /> Download PDF
+        </button>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4">
+        <StatCard icon={Building2} label="Total Hotels" value={stats.totalHotels} color="cyan" />
+        <StatCard icon={Users} label="Total Users" value={allUsers.length} color="purple" />
+        <StatCard icon={MessageSquare} label="Total Reviews" value={stats.totalReviews} color="pink" />
+      </div>
+
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+        <h3 className="text-lg font-bold mb-4">Report Preview</h3>
+        <div className="space-y-4 text-gray-400">
+          <p>This system report will include:</p>
+          <ul className="list-disc list-inside space-y-2 ml-4">
+            <li>Platform statistics (hotels, rooms, reviews, ratings)</li>
+            <li>Complete hotels directory with ratings</li>
+            <li>All registered user accounts</li>
+            <li>Pending partner applications count</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
 const SystemAdminDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  
   const [pendingPartners, setPendingPartners] = useState([]);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('pendingPartners')) || [];
-    setPendingPartners(stored);
+    fetchPendingPartners();
   }, []);
+    const [allUsers, setAllUsers] = useState([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'user',
+    isApproved: true
+  });
+ 
 
+  const fetchPendingPartners = async () => {
+    try {
+      const response = await api.get('/auth/pending-hotel-admins');
+      if (response.data.success) {
+        // Map backend format to frontend format
+        const mapped = response.data.data.map(user => ({
+          id: user._id,
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          hotelName: user.hotelName,
+          hotelAddress: user.hotelAddress,
+          hotelCity: user.hotelCity,
+          hotelCountry: user.hotelCountry,
+          appliedAt: user.createdAt
+        }));
+        setPendingPartners(mapped);
+        localStorage.setItem('pendingPartners', JSON.stringify(mapped));
+      }
+    } catch (err) {
+      console.error('Failed to fetch pending partners', err);
+      // Fallback to localStorage
+      const stored = JSON.parse(localStorage.getItem('pendingPartners')) || [];
+      setPendingPartners(stored);
+    }
+  };
+    const fetchAllUsers = async () => {
+    try {
+      const response = await api.get('/auth/all-users');
+      if (response.data.success) {
+        setAllUsers(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch users', err);
+      showAlert('Error', 'Failed to fetch users');
+    }
+  };
   // Modal states
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
@@ -346,7 +1011,20 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
     images: [''], amenities: [], starRating: 5, contact: { phone: '', email: '' }
   });
 
-  useEffect(() => { fetchData(); }, [activeTab]);
+      useEffect(() => { 
+    fetchData(); 
+    fetchAllUsers();
+  }, [activeTab]);
+
+    // Real-time polling for pending partners, users, and reviews
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchPendingPartners();
+      fetchAllUsers();
+      fetchData(); // Re-fetches hotels which includes nested reviews
+    }, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -371,6 +1049,29 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
   };
 
   const closeAlert = () => setAlertModal(prev => ({ ...prev, isOpen: false }));
+    const handleSignOut = async () => {
+    const result = await Swal.fire({
+      title: 'Sign Out?',
+      text: 'Are you sure you want to sign out of your account?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Sign Out',
+      cancelButtonText: 'Cancel',
+      background: '#0f172a',
+      color: '#fff',
+      customClass: {
+        popup: 'rounded-2xl border border-white/10',
+        confirmButton: 'rounded-xl',
+        cancelButton: 'rounded-xl'
+      }
+    });
+
+    if (result.isConfirmed) {
+      onLogout();
+    }
+  };
 
   // AUTO-CREATE HOTEL ADMIN ACCOUNT AFTER APPROVAL
   const createHotelAdminAccount = async (partnerData) => {
@@ -407,30 +1108,30 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handleApprovePartner = async (partner) => {
+ const handleApprovePartner = async (partner) => {
     try {
       setLoading(true);
       
-      // Create hotel admin account
-      const result = await createHotelAdminAccount(partner);
+      // Approve via backend API
+      const response = await api.put(`/auth/approve-hotel-admin/${partner._id || partner.id}`);
       
-      if (result.success) {
+      if (response.data.success) {
         // Remove from pending
-        const updated = pendingPartners.filter(p => p.id !== partner.id);
+        const updated = pendingPartners.filter(p => p.id !== partner.id && p._id !== partner._id);
         setPendingPartners(updated);
         localStorage.setItem('pendingPartners', JSON.stringify(updated));
 
         Swal.fire({
           icon: 'success',
           title: 'Approved!',
-          html: `Hotel admin account created for <b>${partner.name}</b>.<br>Temporary password sent to ${partner.email}`,
+          html: `Hotel admin account approved for <b>${partner.name}</b>.<br>Temporary password: <b>${response.data.data.tempPassword}</b>`,
           confirmButtonColor: '#06b6d4'
         });
       } else {
-        showAlert('Error', result.error || 'Failed to create admin account');
+        showAlert('Error', response.data.error || 'Failed to approve partner');
       }
     } catch (err) {
-      showAlert('Error', 'Failed to approve partner');
+      showAlert('Error', err.response?.data?.error || 'Failed to approve partner');
     } finally {
       setLoading(false);
     }
@@ -441,6 +1142,80 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
     setPendingPartners(updated);
     localStorage.setItem('pendingPartners', JSON.stringify(updated));
     Swal.fire('Rejected', 'Application has been removed.', 'info');
+  };
+    // USER CRUD
+  const openEditUser = (userData) => {
+    setEditingUser(userData);
+    setUserForm({
+      name: userData.name || '',
+      email: userData.email || '',
+      phone: userData.phone || '',
+      role: userData.role || 'user',
+      isApproved: userData.isApproved !== false
+    });
+    setShowUserModal(true);
+  };
+
+  const resetUserForm = () => {
+    setUserForm({
+      name: '',
+      email: '',
+      phone: '',
+      role: 'user',
+      isApproved: true
+    });
+    setEditingUser(null);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const response = await api.put(`/auth/users/${editingUser._id}`, userForm);
+      if (response.data.success) {
+        showAlert('Success', 'User updated successfully', 'success');
+        setShowUserModal(false);
+        resetUserForm();
+        fetchAllUsers();
+      }
+    } catch (err) {
+      showAlert('Error', err.response?.data?.error || 'Failed to update user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    const result = await Swal.fire({
+      title: 'Delete User?',
+      text: 'This action cannot be undone!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete!'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setLoading(true);
+      await api.delete(`/auth/users/${userId}`);
+      showAlert('Success', 'User deleted successfully', 'success');
+      fetchAllUsers();
+    } catch (err) {
+      showAlert('Error', err.response?.data?.error || 'Failed to delete user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    switch(role) {
+      case 'system_admin': return { color: 'text-purple-400 bg-purple-500/10 border-purple-500/30', icon: Crown, label: 'System Admin' };
+      case 'hotel_admin': return { color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30', icon: Shield, label: 'Hotel Admin' };
+      default: return { color: 'text-green-400 bg-green-500/10 border-green-500/30', icon: User, label: 'User' };
+    }
   };
 
   // HOTEL CRUD
@@ -533,10 +1308,7 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
     };
   }, [hotels, bookings]);
 
-  const filteredHotels = hotels.filter(h => 
-    h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    h.location.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+ 
 
   const allReviews = useMemo(() => {
     const reviews = [];
@@ -550,381 +1322,34 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
     return reviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [hotels]);
 
-  const Sidebar = () => (
-    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-8">
-        <Building2 className="w-8 h-8 text-cyan-400" />
-        <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">System Admin</span>
-      </div>
-      
-      <nav className="space-y-2 flex-1">
-        <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-        <SidebarItem icon={Building2} label="Manage Hotels" active={activeTab === 'hotels'} onClick={() => setActiveTab('hotels')} />
-        <SidebarItem icon={User} label="Pending Partners" active={activeTab === 'partners'} onClick={() => setActiveTab('partners')} badge={pendingPartners.length} />
-        <SidebarItem icon={MessageSquare} label="All Reviews" active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} badge={stats.totalReviews} />
-      </nav>
-
-      <div className="pt-6 border-t border-white/10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold">
-            {user?.name?.charAt(0) || 'S'}
-          </div>
-          <div>
-            <p className="font-medium text-sm">{user?.name || 'System Admin'}</p>
-            <p className="text-xs text-purple-400">System Administrator</p>
-          </div>
-        </div>
-        <button onClick={onLogout} className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm w-full">
-          <LogOut className="w-4 h-4" /> Sign Out
-        </button>
-      </div>
-    </div>
-  );
-
-  const SidebarItem = ({ icon: Icon, label, active, onClick, badge }) => (
-    <button onClick={onClick} 
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
-        active ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 text-cyan-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'
-      }`}>
-      <div className="flex items-center gap-3">
-        <Icon className="w-5 h-5" />
-        <span className="font-medium">{label}</span>
-      </div>
-      {badge > 0 && <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded-full">{badge}</span>}
-    </button>
-  );
-
-  const StatCard = ({ icon: Icon, label, value, color }) => {
-    const colors = {
-      cyan: 'from-cyan-500/20 to-cyan-600/20 border-cyan-500/30 text-cyan-400',
-      purple: 'from-purple-500/20 to-purple-600/20 border-purple-500/30 text-purple-400',
-      pink: 'from-pink-500/20 to-pink-600/20 border-pink-500/30 text-pink-400',
-      green: 'from-green-500/20 to-green-600/20 border-green-500/30 text-green-400'
-    };
-    return (
-      <div className={`bg-gradient-to-br ${colors[color]} backdrop-blur-xl rounded-2xl p-6 border`}>
-        <Icon className="w-8 h-8 mb-3" />
-        <p className="text-gray-400 text-sm mb-1">{label}</p>
-        <p className="text-3xl font-bold">{value}</p>
-      </div>
-    );
-  };
-
-  // DASHBOARD VIEW
-  const DashboardView = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">System Dashboard</h2>
-      
-      <div className="grid md:grid-cols-4 gap-4">
-        <StatCard icon={Building2} label="Total Hotels" value={stats.totalHotels} color="cyan" />
-        <StatCard icon={Calendar} label="Total Bookings" value={stats.totalBookings} color="purple" />
-        <StatCard icon={DollarSign} label="Total Revenue" value={`₱${stats.totalRevenue.toLocaleString()}`} color="green" />
-        <StatCard icon={Star} label="Avg Rating" value={`${stats.averageRating}★`} color="pink" />
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-cyan-400" /> Booking Status
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-green-500/10 rounded-xl border border-green-500/30">
-              <span className="text-green-400">Confirmed</span>
-              <span className="font-bold text-xl">{stats.confirmedBookings}</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-red-500/10 rounded-xl border border-red-500/30">
-              <span className="text-red-400">Cancelled</span>
-              <span className="font-bold text-xl">{stats.cancelledBookings}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <Star className="w-5 h-5 text-yellow-400" /> Reviews Overview
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/30">
-              <span className="text-yellow-400">Total Reviews</span>
-              <span className="font-bold text-xl">{stats.totalReviews}</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-purple-500/10 rounded-xl border border-purple-500/30">
-              <span className="text-purple-400">Average Rating</span>
-              <span className="font-bold text-xl flex items-center gap-1">
-                {stats.averageRating} <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-        <h3 className="text-lg font-bold mb-4">Recent Bookings</h3>
-        <div className="space-y-3 max-h-64 overflow-y-auto">
-          {bookings.slice(0, 5).map(booking => (
-            <div key={booking._id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-              <div>
-                <p className="font-medium text-sm">{booking.hotel?.name}</p>
-                <p className="text-xs text-gray-400 flex items-center gap-1">
-                  <User className="w-3 h-3" /> {booking.user?.name || 'Guest'}
-                  {booking.user?.phone && <span className="flex items-center gap-1 ml-1"><Phone className="w-3 h-3" /> {booking.user.phone}</span>}
-                </p>
-              </div>
-              <span className={`text-xs px-2 py-1 rounded ${booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                {booking.status}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  // HOTELS VIEW
-  const HotelsView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Manage Hotels</h2>
-        <button onClick={() => { setEditingHotel(null); resetHotelForm(); setShowHotelModal(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium hover:shadow-lg transition-all">
-          <Plus className="w-5 h-5" /> Add Hotel
-        </button>
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input type="text" placeholder="Search hotels..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white" />
-      </div>
-
-      <div className="grid gap-4">
-        {filteredHotels.map(hotel => (
-          <div key={hotel._id} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-cyan-500/30 transition-all">
-            <div className="flex flex-col md:flex-row gap-6">
-              <img src={hotel.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80'} alt={hotel.name}
-                className="w-full md:w-48 h-32 object-cover rounded-xl" />
-              <div className="flex-1">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="text-xl font-bold">{hotel.name}</h3>
-                    <p className="text-gray-400 text-sm flex items-center gap-1">
-                      <MapPin className="w-4 h-4" /> {hotel.location.city}, {hotel.location.country}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => openViewReviews(hotel)} className="p-2 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors" title="View Reviews">
-                      <Star className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => openEditHotel(hotel)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors" title="Edit">
-                      <Edit2 className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleDeleteHotel(hotel._id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors" title="Delete">
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-                
-                <p className="text-gray-400 text-sm mb-3 line-clamp-2">{hotel.description}</p>
-                
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {hotel.amenities?.slice(0, 5).map((amenity, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-white/5 rounded text-xs text-gray-300">{amenity}</span>
-                  ))}
-                  {hotel.amenities?.length > 5 && <span className="px-2 py-1 bg-white/5 rounded text-xs text-gray-400">+{hotel.amenities.length - 5} more</span>}
-                </div>
-
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1 text-yellow-400">
-                    <Star className="w-4 h-4 fill-yellow-400" /> {hotel.averageRating || hotel.starRating} ({hotel.reviewCount || 0} reviews)
-                  </span>
-                  <span className="text-gray-600">•</span>
-                  <span className="text-cyan-400 font-medium">{hotel.starRating}-Star</span>
-                  <span className="text-gray-600">•</span>
-                  <span className="text-purple-400 font-medium">{hotel.roomCount || 0} rooms</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  // PENDING PARTNERS VIEW
-  const PartnersView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Pending Hotel Partners</h2>
-        <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-full text-sm">{pendingPartners.length} Pending</span>
-      </div>
-
-      {pendingPartners.length === 0 ? (
-        <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/10">
-          <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-          <p className="text-gray-400">No pending partner applications.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {pendingPartners.map(partner => (
-            <div key={partner.id} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-lg font-bold">
-                    {partner.name?.charAt(0) || 'P'}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">{partner.name}</h3>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mt-1">
-                      <span className="flex items-center gap-1"><Mail className="w-4 h-4" /> {partner.email}</span>
-                      {partner.phone && <span className="flex items-center gap-1"><Phone className="w-4 h-4" /> {partner.phone}</span>}
-                      <span className="flex items-center gap-1"><Building2 className="w-4 h-4" /> {partner.hotelName || 'N/A'}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Applied: {new Date(partner.appliedAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3">
-                  <button onClick={() => handleRejectPartner(partner.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors">
-                    <XCircle className="w-4 h-4" /> Reject
-                  </button>
-                  <button onClick={() => handleApprovePartner(partner)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 rounded-xl hover:bg-green-500/20 transition-colors">
-                    <CheckCircle className="w-4 h-4" /> Approve & Create Account
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // REVIEWS VIEW
-  const ReviewsView = () => {
-    const [reviewFilter, setReviewFilter] = useState('all');
-    const [searchReview, setSearchReview] = useState('');
-
-    const filteredReviews = allReviews.filter(review => {
-      const matchesSearch = 
-        review.hotelName?.toLowerCase().includes(searchReview.toLowerCase()) ||
-        review.user?.name?.toLowerCase().includes(searchReview.toLowerCase()) ||
-        review.comment?.toLowerCase().includes(searchReview.toLowerCase());
-      if (reviewFilter === 'positive') return matchesSearch && review.rating >= 4;
-      if (reviewFilter === 'negative') return matchesSearch && review.rating <= 2;
-      return matchesSearch;
-    });
-
-    const reviewStats = {
-      total: allReviews.length,
-      fiveStar: allReviews.filter(r => r.rating === 5).length,
-      fourStar: allReviews.filter(r => r.rating === 4).length,
-      threeStar: allReviews.filter(r => r.rating === 3).length,
-      twoStar: allReviews.filter(r => r.rating === 2).length,
-      oneStar: allReviews.filter(r => r.rating === 1).length,
-    };
-
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">All Reviews & Experiences</h2>
-          <div className="flex gap-2">
-            <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 rounded-full text-sm">{stats.totalReviews} Total</span>
-            <span className="px-3 py-1 bg-purple-500/10 text-purple-400 rounded-full text-sm">{stats.averageRating}★ Avg</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-5 gap-4">
-          {[5, 4, 3, 2, 1].map(stars => (
-            <div key={stars} className="bg-white/5 rounded-xl p-4 text-center">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="font-bold">{stars}</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-400">
-                {stars === 5 ? reviewStats.fiveStar : stars === 4 ? reviewStats.fourStar : stars === 3 ? reviewStats.threeStar : stars === 2 ? reviewStats.twoStar : reviewStats.oneStar}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" placeholder="Search reviews..." value={searchReview} onChange={(e) => setSearchReview(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:border-cyan-500/50 focus:outline-none text-white" />
-          </div>
-          <select value={reviewFilter} onChange={(e) => setReviewFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none">
-            <option value="all">All Reviews</option>
-            <option value="positive">Positive (4-5★)</option>
-            <option value="negative">Negative (1-2★)</option>
-          </select>
-        </div>
-
-        <div className="space-y-4">
-          {filteredReviews.map((review, idx) => (
-            <div key={idx} className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 hover:border-cyan-500/30 transition-all">
-              <div className="flex flex-col md:flex-row gap-6">
-                <img src={review.hotelImage || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80'} alt={review.hotelName}
-                  className="w-full md:w-32 h-24 object-cover rounded-xl" />
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-bold text-lg text-cyan-400">{review.hotelName}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-xs font-bold">
-                          {review.user?.name?.charAt(0) || 'U'}
-                        </div>
-                        <span className="text-sm text-gray-300">{review.user?.name || 'Unknown User'}</span>
-                        {review.user?.phone && <span className="text-xs text-gray-500 flex items-center gap-1"><Phone className="w-3 h-3" /> {review.user.phone}</span>}
-                        <span className="text-gray-600">•</span>
-                        <span className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${
-                      review.rating >= 4 ? 'bg-green-500/20 text-green-400' : review.rating === 3 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
-                    }`}>
-                      <Star className="w-4 h-4 fill-current" />
-                      <span className="font-bold">{review.rating}.0</span>
-                    </div>
-                  </div>
-                  <p className="text-gray-300 leading-relaxed mb-3">{review.comment}</p>
-                  <div className="flex items-center gap-4">
-                    <button className="flex items-center gap-1 text-sm text-gray-400 hover:text-cyan-400 transition-colors"><ThumbsUp className="w-4 h-4" /> Helpful</button>
-                    <button className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-400 transition-colors"><Flag className="w-4 h-4" /> Report</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-          {filteredReviews.length === 0 && (
-            <div className="text-center py-12">
-              <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No reviews found matching your criteria.</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
+  
   return (
     <div className="min-h-screen bg-slate-950 text-white flex">
       <AlertModal isOpen={alertModal.isOpen} onClose={closeAlert} title={alertModal.title} message={alertModal.message} type={alertModal.type} />
       <HotelModal showHotelModal={showHotelModal} setShowHotelModal={setShowHotelModal} editingHotel={editingHotel}
         hotelForm={hotelForm} setHotelForm={setHotelForm} loading={loading} handleCreateHotel={handleCreateHotel} handleUpdateHotel={handleUpdateHotel} />
       <ReviewsModal showReviewsModal={showReviewsModal} setShowReviewsModal={setShowReviewsModal} selectedHotelForReviews={selectedHotelForReviews} />
+            <UserModal showUserModal={showUserModal} setShowUserModal={setShowUserModal} editingUser={editingUser}
+        userForm={userForm} setUserForm={setUserForm} loading={loading} handleUpdateUser={handleUpdateUser} />
       
-      <Sidebar />
+            <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        pendingPartners={pendingPartners} 
+        allUsers={allUsers} 
+        stats={stats} 
+        user={user} 
+        handleSignOut={handleSignOut} 
+      />
 
       <div className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
-          {activeTab === 'dashboard' && <DashboardView />}
-          {activeTab === 'hotels' && <HotelsView />}
-          {activeTab === 'partners' && <PartnersView />}
-          {activeTab === 'reviews' && <ReviewsView />}
+          {activeTab === 'dashboard' && <DashboardView stats={stats} hotels={hotels} allReviews={allReviews} />}
+          {activeTab === 'hotels' && <HotelsView hotels={hotels} openViewReviews={openViewReviews} openEditHotel={openEditHotel} handleDeleteHotel={handleDeleteHotel} />}
+          {activeTab === 'partners' && <PartnersView pendingPartners={pendingPartners} handleRejectPartner={handleRejectPartner} handleApprovePartner={handleApprovePartner} />}
+          {activeTab === 'users' && <UsersView allUsers={allUsers} getRoleBadge={getRoleBadge} openEditUser={openEditUser} handleDeleteUser={handleDeleteUser} />}
+          {activeTab === 'reviews' && <ReviewsView stats={stats} allReviews={allReviews} />}
+          {activeTab === 'reports' && <ReportsView stats={stats} hotels={hotels} allReviews={allReviews} allUsers={allUsers} bookings={bookings} pendingPartners={pendingPartners} />}
         </div>
       </div>
     </div>
@@ -932,4 +1357,3 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
 };
 
 export default SystemAdminDashboard;
-

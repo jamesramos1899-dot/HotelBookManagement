@@ -2,28 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { Search, Calendar, Users, Star, MapPin, ChevronRight, Sparkles, Shield, Clock, Wifi, Car, Coffee, Waves, Diamond } from 'lucide-react';
 import Login from './Login';
 import Dashboard from './Dashboard';
-import AdminDashboard from './AdminDashboard';
+import HotelAdminDashboard from './HotelAdminDashboard';
+import SystemAdminDashboard from './SystemAdminDashboard';
+import HotelAdminRegister from './HotelAdminRegister';
 import authService from './services/authService';
 import Swal from 'sweetalert2';
-import HotelAdminRegister from './HotelAdminRegister';
 
 const App = () => {
   const [scrolled, setScrolled] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
+    useEffect(() => {
     const loggedInUser = authService.getCurrentUser();
-    if (loggedInUser) {
+    if (loggedInUser && authService.isAuthenticated()) {
       setUser(loggedInUser);
       // Redirect based on role
-      if (loggedInUser.role === 'admin') {
+      if (loggedInUser.role === 'system_admin') {
+        setCurrentPage('systemAdmin');
+      } else if (loggedInUser.role === 'hotel_admin') {
+        setCurrentPage('hotelAdmin');
+      } else if (loggedInUser.role === 'admin') {
         setCurrentPage('admin');
       } else {
         setCurrentPage('dashboard');
       }
     }
-    
+
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -32,7 +37,11 @@ const App = () => {
   const handleLogin = (userData) => {
     setUser(userData);
     // Redirect based on role
-    if (userData.role === 'admin') {
+    if (userData.role === 'system_admin') {
+      setCurrentPage('systemAdmin');
+    } else if (userData.role === 'hotel_admin') {
+      setCurrentPage('hotelAdmin');
+    } else if (userData.role === 'admin') {
       setCurrentPage('admin');
     } else {
       setCurrentPage('dashboard');
@@ -42,41 +51,52 @@ const App = () => {
   const handleLogout = () => {
     authService.logout();
     setUser(null);
-    setCurrentPage('home');  // Go back to home page after logout
+    setCurrentPage('home');
   };
 
-  // Show Admin Dashboard
-  if (currentPage === 'admin' && user?.role === 'admin') {
-    return <AdminDashboard user={user} onLogout={handleLogout} />;
+  // ====== ROLE-BASED DASHBOARD ROUTING ======
+
+  // System Admin Dashboard
+  if (currentPage === 'systemAdmin' && user?.role === 'system_admin') {
+    return <SystemAdminDashboard user={user} onLogout={handleLogout} />;
   }
 
-  // Show User Dashboard
+  // Hotel Admin Dashboard
+  if (currentPage === 'hotelAdmin' && user?.role === 'hotel_admin') {
+    return <HotelAdminDashboard user={user} onLogout={handleLogout} />;
+  }
+
+  // Guest/Customer Dashboard
   if (currentPage === 'dashboard' && user) {
     return <Dashboard user={user} onLogout={handleLogout} />;
   }
 
-  // Show Login Page
+    // Login Page
   if (currentPage === 'login') {
-    return <Login onLogin={handleLogin} />;
+    return <Login 
+      onLogin={handleLogin} 
+      onBack={() => setCurrentPage('home')}
+      onNavigate={setCurrentPage}
+    />;
   }
 
-  // Show Hotel Admin Registration Page
+  // Hotel Admin Registration Page (Let's Partner)
   if (currentPage === 'partner') {
-  return <HotelAdminRegister
-    onSuccess={() => {
-      Swal.fire({
-        icon: 'success',
-        title: 'Registration Submitted',
-        text: 'Your account is pending and waiting for system admin approval.',
-        confirmButtonColor: '#06b6d4'
-      });
-      setCurrentPage('home');
-    }}
-     onBack={() => setCurrentPage('home')} 
-  />;
-}
+    return <HotelAdminRegister
+      onSuccess={() => {
+        Swal.fire({
+          icon: 'success',
+          title: 'Registration Submitted',
+          text: 'Your account is pending system admin approval. You will receive an email notification once approved.',
+          confirmButtonColor: '#06b6d4'
+        });
+        setCurrentPage('home');
+      }}
+      onBack={() => setCurrentPage('home')} 
+    />;
+  }
 
-  // Show Home Page (landing page)
+  // ====== HOME / LANDING PAGE ======
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-x-hidden relative">
       {/* Animated Background */}
@@ -86,43 +106,51 @@ const App = () => {
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-{/* Navigation */}
-<nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-slate-950/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'}`}>
-  <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-    
-    <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-      <Diamond className="w-8 h-8 text-cyan-400" />
-      <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-        AI STAY
-      </span>
-    </div>
+      {/* Navigation */}
+      <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-slate-950/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'}`}>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
 
-    <div className="hidden md:flex items-center gap-8">
-      <button
-        onClick={() => setCurrentPage('partner')}
-        className="text-gray-300 hover:text-white transition-colors font-medium"
-      >
-        Let&apos;s Partner
-      </button>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
+            <Diamond className="w-8 h-8 text-cyan-400" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              AI STAY
+            </span>
+          </div>
 
-      {user ? (
-        <button
-          onClick={() => setCurrentPage(user.role === 'admin' ? 'admin' : 'dashboard')}
-          className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
-        >
-          Dashboard
-        </button>
-      ) : (
-        <button
-          onClick={() => setCurrentPage('login')}
-          className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
-        >
-          Sign In
-        </button>
-      )}
-    </div>
-  </div>
-</nav>
+          <div className="hidden md:flex items-center gap-8">
+            {/* LET'S PARTNER - For Hotel Admins to Register */}
+            {!user && (
+              <button
+                onClick={() => setCurrentPage('partner')}
+                className="text-gray-300 hover:text-white transition-colors font-medium"
+              >
+                Let&apos;s Partner
+              </button>
+            )}
+
+            {user ? (
+              <button
+                onClick={() => {
+                  if (user.role === 'system_admin') setCurrentPage('systemAdmin');
+                  else if (user.role === 'hotel_admin') setCurrentPage('hotelAdmin');
+                  else if (user.role === 'admin') setCurrentPage('admin');
+                  else setCurrentPage('dashboard');
+                }}
+                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
+              >
+                Dashboard
+              </button>
+            ) : (
+              <button
+                onClick={() => setCurrentPage('login')}
+                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
+              >
+                Sign In
+              </button>
+            )}
+          </div>
+        </div>
+      </nav>
 
       {/* Hero Section */}
       <section className="relative z-10 pt-32 pb-20 px-6">
@@ -152,7 +180,7 @@ const App = () => {
               </div>
               <div className="p-2">
                 <button 
-                  onClick={() => user ? setCurrentPage(user.role === 'admin' ? 'admin' : 'dashboard') : setCurrentPage('login')}
+                  onClick={() => user ? setCurrentPage('dashboard') : setCurrentPage('login')}
                   className="w-full py-4 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/50 transition-all duration-300 flex items-center justify-center gap-2 group"
                 >
                   <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -224,6 +252,25 @@ const App = () => {
         </div>
       </section>
 
+      {/* Partner CTA Section */}
+      <section className="relative z-10 py-20 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-3xl p-12 border border-white/10">
+            <h2 className="text-3xl font-bold mb-4">Own a Hotel?</h2>
+            <p className="text-gray-400 mb-8 max-w-xl mx-auto">
+              Join our network of luxury properties and reach thousands of discerning travelers. 
+              Partner with AI STAY today.
+            </p>
+            <button 
+              onClick={() => setCurrentPage('partner')}
+              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl font-bold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300"
+            >
+              Let&apos;s Partner →
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 py-12 px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
@@ -242,10 +289,6 @@ const App = () => {
     </div>
   );
 };
-
-const NavLink = ({ children }) => (
-  <a href="#" className="text-gray-300 hover:text-white transition-colors font-medium">{children}</a>
-);
 
 const SearchField = ({ icon: Icon, placeholder, label }) => (
   <div className="flex items-center gap-3 p-4 hover:bg-white/5 rounded-2xl transition-colors cursor-pointer group">

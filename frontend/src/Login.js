@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 import {
   Diamond,
-  Eye,
-  EyeOff,
   Mail,
   Lock,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Loader2,
   User,
-  Phone,
-  AlertCircle
+  Phone
 } from 'lucide-react';
 import authService from './services/authService';
-import Swal from 'sweetalert2';
 
-const Login = ({ onLogin }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+const Login = ({ onLogin, onBack, onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-
-  const [formData, setFormData] = useState({
+  const [loading, setLoading] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [form, setForm] = useState({
+    email: '',
+    password: ''
+  });
+  const [registerForm, setRegisterForm] = useState({
     name: '',
     email: '',
     phone: '',
@@ -30,89 +30,133 @@ const Login = ({ onLogin }) => {
     confirmPassword: ''
   });
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError('');
-    setMessage('');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setMessage('');
 
     try {
-      if (isSignUp) {
-        if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
+      const result = await authService.login(form.email, form.password);
+
+      if (result.success) {
+        const user = result.data;
+
+        // Check if hotel_admin is approved
+        if (user.role === 'hotel_admin' && !user.isApproved) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Account Pending Approval',
+            text: 'Your hotel admin account is waiting for system admin approval. Please check your email for updates.',
+            confirmButtonColor: '#06b6d4'
+          });
           setLoading(false);
           return;
         }
 
-        const response = await authService.register({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          phone: formData.phone
+        // Store user in localStorage
+        localStorage.setItem('user', JSON.stringify(user));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Welcome Back!',
+          text: `Logged in as ${user.name}`,
+          timer: 1500,
+          showConfirmButton: false
         });
 
-        if (response.success) {
-  Swal.fire({
-    icon: 'success',
-    title: 'Registration Successful',
-    text: 'Please log in to continue.',
-    confirmButtonColor: '#06b6d4'
-  }).then(() => {
-    setIsSignUp(false);
-    setMessage('');
-
-    setFormData({
-      name: '',
-      email: formData.email,
-      phone: '',
-      password: '',
-      confirmPassword: ''
-    });
-
-    setShowPassword(false);
-    setShowConfirmPassword(false);
-  });
-
-} else {
-  setError(response.error || 'Registration failed');
-}
-
-} else {
-  const response = await authService.login({
-    email: formData.email,
-    password: formData.password
-  });
-
-        if (response.success) {
-  Swal.fire({
-    icon: 'success',
-    title: 'Login Successful',
-    text: 'Welcome back!',
-    confirmButtonColor: '#06b6d4'
-  }).then(() => {
-    onLogin(response.data);
-  });
-} else {
-          setError(response.error || 'Login failed');
-        }
+        onLogin(user);
+            } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Login Failed',
+          text: result.error || 'Invalid credentials',
+          confirmButtonColor: '#ef4444'
+        });
+        setLoading(false);
+        return;
       }
-
-    } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong. Please try again.');
-    } finally {
+        } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Login Failed',
+        text: error.response?.data?.error || 'Something went wrong',
+        confirmButtonColor: '#ef4444'
+      });
       setLoading(false);
+      return;
+    } finally {
+      
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    
+    if (registerForm.password !== registerForm.confirmPassword) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Password Mismatch',
+        text: 'Passwords do not match. Please try again.',
+        confirmButtonColor: '#ef4444'
+      });
+      return;
+    }
+
+    setRegisterLoading(true);
+
+    try {
+      const result = await authService.register({
+        name: registerForm.name,
+        email: registerForm.email,
+        phone: registerForm.phone,
+        password: registerForm.password,
+        role: 'user'
+      });
+
+      if (result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Registration Successful!',
+          text: 'Your account has been created successfully! You can now sign in.',
+          confirmButtonColor: '#06b6d4'
+        });
+        setShowRegister(false);
+        setRegisterForm({
+          name: '',
+          email: '',
+          phone: '',
+          password: '',
+          confirmPassword: ''
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Registration Failed',
+          text: result.error || 'Something went wrong',
+          confirmButtonColor: '#ef4444'
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Registration Failed',
+        text: error.response?.data?.error || 'Something went wrong',
+        confirmButtonColor: '#ef4444'
+      });
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  const handlePartnerClick = () => {
+    if (onNavigate) {
+      onNavigate('partner');
+    } else {
+      window.dispatchEvent(new CustomEvent('navigate', { detail: 'hotel-admin-register' }));
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
-
       {/* Background */}
       <div className="absolute inset-0">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl" />
@@ -120,6 +164,13 @@ const Login = ({ onLogin }) => {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
+        {/* Back Button */}
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
+        >
+          <ArrowLeft className="w-5 h-5" /> Back to Home
+        </button>
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
@@ -131,167 +182,212 @@ const Login = ({ onLogin }) => {
           </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10">
+        {/* Login Card */}
+        {!showRegister ? (
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10">
+            <h2 className="text-2xl font-bold text-center text-white mb-2">
+              Welcome Back
+            </h2>
+            <p className="text-gray-400 text-center mb-8">
+              Sign in to your account
+            </p>
 
-          <h2 className="text-2xl font-bold text-center text-white mb-2">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
-          </h2>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* EMAIL */}
+              <div>
+                <label className="text-sm text-gray-300">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
 
-          <p className="text-gray-400 text-center mb-8">
-            {isSignUp
-              ? 'Join the future of luxury hospitality'
-              : 'Sign in to access your dashboard'}
-          </p>
+              {/* PASSWORD */}
+              <div>
+                <label className="text-sm text-gray-300">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter password"
+                    className="w-full pl-12 pr-14 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 z-10"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
 
-          {/* Messages */}
-          {message && (
-            <div className="mb-4 p-3 bg-green-500/10 text-green-400 rounded-xl text-sm">
-              {message}
-            </div>
-          )}
+              {/* SUBMIT */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-xl font-bold text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Signing in...
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 text-red-400 rounded-xl flex items-center gap-2 text-sm">
-              <AlertCircle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
+            {/* Register Link */}
+            <p className="text-center text-gray-400 text-sm mt-6">
+              Don&apos;t have an account?{' '}
+              <button 
+                onClick={() => setShowRegister(true)}
+                className="text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                Create an Account
+              </button>
+            </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+            <p className="text-center text-gray-500 text-xs mt-4">
+              Are you a hotel owner?{' '}
+              <button 
+                onClick={handlePartnerClick}
+                className="text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                Register as Partner
+              </button>
+            </p>
+          </div>
+        ) : (
+          /* Guest Registration Card */
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10">
+            <h2 className="text-2xl font-bold text-center text-white mb-2">
+              Create Account
+            </h2>
+            <p className="text-gray-400 text-center mb-8">
+              Join AI STAY as a Guest
+            </p>
 
-            {/* FULL NAME */}
-            {isSignUp && (
+            <form onSubmit={handleRegister} className="space-y-4">
+              {/* NAME */}
               <div>
                 <label className="text-sm text-gray-300">Full Name</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
+                    type="text"
                     placeholder="Enter your full name"
-                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    value={registerForm.name}
+                    onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
                     required
                   />
                 </div>
               </div>
-            )}
 
-            {/* EMAIL */}
-            <div>
-              <label className="text-sm text-gray-300">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="Enter your email"
-                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* PHONE */}
-            {isSignUp && (
+              {/* EMAIL */}
               <div>
-                <label className="text-sm text-gray-300">Phone</label>
+                <label className="text-sm text-gray-300">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* PHONE */}
+              <div>
+                <label className="text-sm text-gray-300">Phone Number</label>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="09XXXXXXXXX"
-                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    value={registerForm.phone}
+                    onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
                     required
                   />
                 </div>
               </div>
-            )}
 
-            {/* PASSWORD */}
-            <div>
-              <label className="text-sm text-gray-300">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Enter password"
-                  className="w-full pl-12 pr-12 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500"
-                  required
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(prev => !prev)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 z-10"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+              {/* PASSWORD */}
+              <div>
+                <label className="text-sm text-gray-300">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="password"
+                    placeholder="Create a password"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    value={registerForm.password}
+                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* CONFIRM PASSWORD */}
-            {isSignUp && (
+              {/* CONFIRM PASSWORD */}
               <div>
                 <label className="text-sm text-gray-300">Confirm Password</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Confirm password"
-                    className="w-full pl-12 pr-12 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500"
+                    type="password"
+                    placeholder="Confirm your password"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    value={registerForm.confirmPassword}
+                    onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
                     required
                   />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(prev => !prev)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 z-10"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
                 </div>
               </div>
-            )}
 
-            {/* SUBMIT */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-xl font-bold text-white"
-            >
-              {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
-            </button>
+              {/* SUBMIT */}
+              <button
+                type="submit"
+                disabled={registerLoading}
+                className="w-full py-4 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-xl font-bold text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              >
+                {registerLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Creating Account...
+                  </span>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            </form>
 
-          </form>
-
-          {/* TOGGLE */}
-          <p className="text-center text-gray-400 mt-6">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-            <button
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError('');
-                setMessage('');
-              }}
-              className="ml-2 text-cyan-400"
-            >
-              {isSignUp ? 'Sign In' : 'Create account'}
-            </button>
-          </p>
-
-        </div>
+            {/* Back to Login */}
+            <p className="text-center text-gray-400 text-sm mt-6">
+              Already have an account?{' '}
+              <button 
+                onClick={() => setShowRegister(false)}
+                className="text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                Sign In
+              </button>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
