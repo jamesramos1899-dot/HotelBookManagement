@@ -2,7 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
-const connectDB = require('./Config/db');
+const connectDB = require('./config/db');              // ✅ lowercase "config"
 
 // Load env vars
 dotenv.config();
@@ -11,11 +11,11 @@ dotenv.config();
 connectDB();
 
 // Route files
-const authRoutes = require('./Routes/authRoutes');
-const hotelRoutes = require('./Routes/hotelRoutes');
-const roomRoutes = require('./Routes/roomRoutes');
-const bookingRoutes = require('./Routes/bookingRoutes');
-const paymentRoutes = require('./Routes/paymentRoutes');
+const authRoutes = require('./routes/authRoutes');      // ✅ lowercase "routes"
+const hotelRoutes = require('./routes/hotelRoutes');    // ✅ lowercase "routes"
+const roomRoutes = require('./routes/roomRoutes');      // ✅ lowercase "routes"
+const bookingRoutes = require('./routes/bookingRoutes'); // ✅ lowercase "routes"
+const paymentRoutes = require('./routes/paymentRoutes'); // ✅ lowercase "routes"
 
 const app = express();
 
