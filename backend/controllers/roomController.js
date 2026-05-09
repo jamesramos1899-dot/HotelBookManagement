@@ -1,5 +1,5 @@
-const Room = require('../Models/Room');
-const Hotel = require('../Models/Hotel');
+const Room = require('../models/Room');
+const Hotel = require('../models/Hotel');
 
 // Helper function to update hotel room count AND max capacity
 const updateHotelStats = async (hotelId) => {
