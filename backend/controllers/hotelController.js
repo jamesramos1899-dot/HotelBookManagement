@@ -1,6 +1,6 @@
-const Hotel = require('../Models/Hotel');
-const User = require('../Models/User');
-const Room = require('../Models/Room');
+const Hotel = require('../models/Hotel');
+const User = require('../models/User');
+const Room = require('../models/Room');
 
 // ================= GET ALL HOTELS =================
 exports.getHotels = async (req, res) => {

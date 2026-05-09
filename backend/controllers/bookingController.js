@@ -1,6 +1,6 @@
-const Booking = require('../Models/Booking');
-const Room = require('../Models/Room');
-const Hotel = require('../Models/Hotel');
+const Booking = require('../models/Booking');
+const Room = require('../models/Room');
+const Hotel = require('../models/Hotel');
 
 // Helper: Format date to YYYY-MM-DD using UTC
 const formatUTCDate = (date) => {
