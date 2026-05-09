@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const generateToken = require('../Utils/generateToken');
+const generateToken = require('../utils/generateToken');
 
 // ================= REGISTER =================
 // ================= REGISTER =================
@@ -116,7 +116,7 @@ exports.approveHotelAdmin = async (req, res) => {
 
     // Send email notification
     try {
-      const sendEmail = require('../Utils/sendEmail');
+      const sendEmail = require('../utils/sendEmail');
       await sendEmail({
         to: user.email,
         subject: 'Your AI STAY Partner Account Has Been Approved!',
