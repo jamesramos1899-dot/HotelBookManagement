@@ -1,5 +1,5 @@
-const stripe = require('../Config/stripe');
-const Booking = require('../Models/Booking');
+const stripe = require('../config/stripe');
+const Booking = require('../models/Booking');
 
 exports.createPaymentIntent = async (req, res) => {
   try {

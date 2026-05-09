@@ -1,5 +1,5 @@
-const Room = require('../Models/Room');
-const Hotel = require('../Models/Hotel');
+const Room = require('../models/Room');
+const Hotel = require('../models/Hotel');
 
 // Helper function to update hotel room count AND max capacity
 const updateHotelStats = async (hotelId) => {
@@ -68,7 +68,7 @@ exports.getRoomsByHotel = async (req, res) => {
       const checkOutDate = new Date(checkOut);
       
       // Find all bookings that overlap with requested dates
-      const Booking = require('../Models/Booking');
+      const Booking = require('../models/Booking');
       const overlappingBookings = await Booking.find({
         room: { $in: rooms.map(r => r._id) },
         status: { $nin: ['cancelled'] },
