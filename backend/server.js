@@ -23,7 +23,7 @@ const app = express();
 app.use(express.json());
 
 // Enable CORS - allow Railway frontend + local dev
-const allowedOrigins = ['http://localhost:3000'];
+const allowedOrigins = ['hotelbookmanagement-copy-production.up.railway.app'];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
 // If FRONTEND_URL is not set in production, allow all origins (convenience fallback).
