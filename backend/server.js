@@ -22,9 +22,21 @@ const app = express();
 // Body parser
 app.use(express.json());
 
-// Enable CORS
+// Enable CORS - allow Railway frontend + local dev
+const allowedOrigins = [
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
@@ -38,9 +50,9 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 
-// Health check
+// Health check (Railway uses this)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running', roles: ['user', 'hotel_admin', 'system_admin'] });
+  res.json({ status: 'OK', message: 'Server is running' });
 });
 
 // Error handling
@@ -53,7 +65,6 @@ const PORT = process.env.PORT || 5001;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Available roles: user, hotel_admin, system_admin`);
 });
 
 process.on('unhandledRejection', (err) => {
