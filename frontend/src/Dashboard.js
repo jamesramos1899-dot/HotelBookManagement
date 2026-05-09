@@ -1277,7 +1277,7 @@ const Dashboard = ({ user, onLogout }) => {
         let avatarUrl = userData.avatar || '';
         // Convert relative URL to absolute URL
         if (avatarUrl && !avatarUrl.startsWith('http')) {
-          let baseUrl = api.defaults.baseURL || 'http://localhost:5001';
+          let baseUrl = api.defaults.baseURL || process.env.REACT_APP_API_URL || '';
           // Remove /api from end if present, since uploads are served at root
           baseUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
           avatarUrl = baseUrl + '/' + avatarUrl.replace(/^\//, '');
