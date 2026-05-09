@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { getBookings, createBooking, updateBooking, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates, getMyHotelBookings } = require('../Controllers/bookingController');
-const { protect, authorize } = require('../Middleware/auth');
+const { getBookings, createBooking, updateBooking, cancelBooking, deleteBooking, getRoomBookedDates, getHotelBookedDates, getMyHotelBookings } = require('../controllers/bookingController');  // ✅ lowercase
+const { protect, authorize } = require('../middleware/auth');  // ✅ lowercase
 
 // ================= PUBLIC ROUTES =================
 router.get('/room/:roomId/dates', getRoomBookedDates);
@@ -25,7 +25,7 @@ router.get('/my-hotel', protect, authorize('hotel_admin', 'system_admin', 'admin
 router.post('/check-availability', protect, async (req, res) => {
   try {
     const { room, checkInDate, checkOutDate } = req.body;
-    const Booking = require('../Models/Booking');
+    const Booking = require('../models/Booking');  // ✅ lowercase
 
     const existingBooking = await Booking.findOne({
       room: room,

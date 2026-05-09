@@ -10,8 +10,8 @@ const {
   toggleFavorite,
   getMyFavorites,
   getMyHotelReviews
-} = require('../controllers/hotelController');
-const { protect, authorize } = require('../middleware/auth');
+} = require('../controllers/hotelController');  // ✅ already lowercase
+const { protect, authorize } = require('../middleware/auth');  // ✅ already lowercase
 
 // ================= PUBLIC ROUTES =================
 router.get('/', getHotels);

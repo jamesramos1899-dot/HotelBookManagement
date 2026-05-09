@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const User = require('../Models/User');
+const User = require('../models/User');              // ✅ lowercase "models"
 
 const {
   register,
@@ -11,10 +11,13 @@ const {
   getMe,
   approveHotelAdmin,
   getPendingHotelAdmins,
-  getAllUsers
-} = require('../controllers/authController');
+  getAllUsers,
+  updateUser,           // ✅ Moved here (was imported twice)
+  deleteUser,           // ✅ Moved here
+  registerHotelAdmin    // ✅ Moved here
+} = require('../controllers/authController');       // ✅ already lowercase
 
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');  // ✅ already lowercase
 
 // ================= MULTER SETUP FOR AVATAR =================
 const storage = multer.diskStorage({
@@ -99,11 +102,14 @@ router.put('/me/avatar', protect, upload.single('avatar'), async (req, res) => {
 router.get('/pending-hotel-admins', protect, authorize('system_admin'), getPendingHotelAdmins);
 router.put('/approve-hotel-admin/:id', protect, authorize('system_admin'), approveHotelAdmin);
 router.get('/all-users', protect, authorize('system_admin'), getAllUsers);
-const { updateUser, deleteUser } = require('../controllers/authController');
+
+// ✅ Removed duplicate require - now using destructured imports above
 router.put('/users/:id', protect, authorize('system_admin'), updateUser);
 router.delete('/users/:id', protect, authorize('system_admin'), deleteUser);
-const { registerHotelAdmin } = require('../controllers/authController');
+
+// ✅ Removed duplicate require - now using destructured imports above
 router.post('/register-hotel-admin', protect, authorize('system_admin'), registerHotelAdmin);
+
 // CHANGE PASSWORD
 router.put('/change-password', protect, async (req, res) => {
   try {
@@ -123,7 +129,5 @@ router.put('/change-password', protect, async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
-
-
 
 module.exports = router;

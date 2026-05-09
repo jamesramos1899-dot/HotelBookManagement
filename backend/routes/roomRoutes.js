@@ -9,9 +9,9 @@ const {
   deleteRoom,
   getRoomsByHotel,
   getMyRooms
-} = require('../Controllers/roomController');
+} = require('../controllers/roomController');  // ✅ lowercase
 
-const { protect, authorize } = require('../Middleware/auth');
+const { protect, authorize } = require('../middleware/auth');  // ✅ lowercase
 
 // ================= PUBLIC ROUTES =================
 router.get('/', getRooms);
