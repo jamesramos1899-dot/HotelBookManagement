@@ -22,6 +22,20 @@ const app = express();
 // Body parser
 app.use(express.json());
 
+// Simple request logger (helps debug 405s in production)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    console.log(`REQ ${req.method} ${req.path}`);
+    next();
+  });
+} else {
+  // In production still log minimal info for critical paths
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) console.log(`REQ ${req.method} ${req.path}`);
+    next();
+  });
+}
+
 // Enable CORS - allow Railway frontend + local dev
 const allowedOrigins = ['hotelbookmanagement-copy-production.up.railway.app'];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
@@ -44,6 +58,9 @@ if (!process.env.FRONTEND_URL && process.env.NODE_ENV === 'production') {
     credentials: true
   }));
 }
+
+// Explicitly handle OPTIONS preflight for all routes — avoids 405 from some platforms
+app.options('*', cors());
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
