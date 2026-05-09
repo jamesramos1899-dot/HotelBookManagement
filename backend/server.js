@@ -37,7 +37,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Enable CORS - allow Railway frontend + local dev
-const allowedOrigins = ['hotelbookmanagement-copy-production.up.railway.app'];
+const allowedOrigins = ['https://hotel-book-management.vercel.app'];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
 // If FRONTEND_URL is not set in production, allow all origins (convenience fallback).
