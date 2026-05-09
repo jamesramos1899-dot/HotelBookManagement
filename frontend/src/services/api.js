@@ -1,10 +1,15 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api',
+  // This is the magic part:
+  // In production, it uses the relative path '/api' to trigger the Vercel rewrite.
+  // In local development, it uses your local server.
+  baseURL: process.env.NODE_ENV === 'production' 
+    ? '/api' 
+    : 'http://localhost:5001/api',
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
 // Add auth token to requests
