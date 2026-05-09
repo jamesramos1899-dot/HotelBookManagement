@@ -14,7 +14,6 @@ frontend/dist/
 .env.test.local
 .env.production.local
 backend/.env
-frontend/.env
 
 # Logs
 logs
