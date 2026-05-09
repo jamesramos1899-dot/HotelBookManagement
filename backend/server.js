@@ -2,7 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
-const connectDB = require('./config/db');              // ✅ lowercase "config"
+const connectDB = require('./config/db');
 
 // Load env vars
 dotenv.config();
@@ -11,55 +11,46 @@ dotenv.config();
 connectDB();
 
 // Route files
-const authRoutes = require('./routes/authRoutes');      // ✅ lowercase "routes"
-const hotelRoutes = require('./routes/hotelRoutes');    // ✅ lowercase "routes"
-const roomRoutes = require('./routes/roomRoutes');      // ✅ lowercase "routes"
-const bookingRoutes = require('./routes/bookingRoutes'); // ✅ lowercase "routes"
-const paymentRoutes = require('./routes/paymentRoutes'); // ✅ lowercase "routes"
+const authRoutes = require('./routes/authRoutes');
+const hotelRoutes = require('./routes/hotelRoutes');
+const roomRoutes = require('./routes/roomRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 
 // Body parser
 app.use(express.json());
 
-// Simple request logger (helps debug 405s in production)
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
-    console.log(`REQ ${req.method} ${req.path}`);
-    next();
-  });
-} else {
-  // In production still log minimal info for critical paths
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) console.log(`REQ ${req.method} ${req.path}`);
-    next();
-  });
-}
+// Enhanced Request Logger for production debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
-// Enable CORS - allow Railway frontend + local dev
-const allowedOrigins = ['https://hotel-book-management.vercel.app'];
-if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+// Simplified & Robust CORS configuration
+const allowedOrigins = [
+  'https://hotel-book-management.vercel.app',
+  process.env.FRONTEND_URL // Pulls from your Railway/Vercel Env Vars
+].filter(Boolean); // Removes undefined values
 
-// If FRONTEND_URL is not set in production, allow all origins (convenience fallback).
-// For stricter security set FRONTEND_URL in your deployment to the frontend origin.
-if (!process.env.FRONTEND_URL && process.env.NODE_ENV === 'production') {
-  console.warn('FRONTEND_URL not set and running in production — allowing all CORS origins as a fallback. Set FRONTEND_URL to restrict origins.');
-  app.use(cors({ origin: true, credentials: true }));
-} else {
-  app.use(cors({
-    origin: function(origin, callback) {
-      // Allow requests with no origin (mobile apps, curl, etc)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl) 
+    // OR if the origin is in our allowed list
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      console.error(`CORS Blocked: Origin ${origin} not in allowed list`);
       callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true
-  }));
-}
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Explicitly handle OPTIONS preflight for all routes — avoids 405 from some platforms
+// Explicitly handle OPTIONS preflight for all routes
 app.options('*', cors());
 
 // Serve uploaded files
@@ -72,28 +63,42 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 
-// Health check (Railway uses this)
+// Health check (Railway uses this to see if app is alive)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV 
+  });
 });
 
-// Error handling
+// Catch-all for undefined API routes (Prevents 405/404 confusion)
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: `API route ${req.originalUrl} not found on this server.` });
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('SERVER ERROR:', err.stack);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong!'
+  });
 });
 
 const PORT = process.env.PORT || 5001;
 
+// Start server logic
 if (require.main === module) {
   const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
 
   process.on('unhandledRejection', (err) => {
-    console.log(`Error: ${err.message}`);
+    console.log(`Unhandled Rejection: ${err.message}`);
     server.close(() => process.exit(1));
   });
-} else {
-  module.exports = app;
 }
+
+// Always export app for Vercel/Testing
+module.exports = app;
