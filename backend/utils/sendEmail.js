@@ -5,15 +5,12 @@ const sendEmail = async (options) => {
 
   const { data, error } = await resend.emails.send({
     from: `${process.env.FROM_NAME} <onboarding@resend.dev>`,
-    to: options.to,
+    to: 'jamesramos1899@gmail.com', // ← Only verified email works on free plan
     subject: options.subject,
     html: options.html
   });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  if (error) throw new Error(error.message);
   console.log('Email sent:', data.id);
   return data;
 };
