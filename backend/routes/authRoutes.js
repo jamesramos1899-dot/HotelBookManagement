@@ -130,4 +130,21 @@ router.put('/change-password', protect, async (req, res) => {
   }
 });
 
+// ================= TEST EMAIL ROUTE (TEMPORARY) =================
+router.get('/test-email', async (req, res) => {
+  try {
+    const sendEmail = require('../utils/sendEmail');
+    await sendEmail({
+      to: 'techlass2025@gmail.com',
+      subject: 'Railway Email Test',
+      html: '<h1>Email is working from Railway!</h1>'
+    });
+    res.json({ success: true, message: 'Email sent!' });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+module.exports = router;
+
 module.exports = router;
