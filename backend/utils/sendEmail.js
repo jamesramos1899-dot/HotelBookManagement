@@ -1,18 +1,24 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const transporter = nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.BREVO_USER,
+      pass: process.env.BREVO_PASS
+    }
+  });
 
-  const { data, error } = await resend.emails.send({
-    from: `${process.env.FROM_NAME} <onboarding@resend.dev>`,
-    to: 'jamesramos1899@gmail.com', // ← Only verified email works on free plan
+  await transporter.sendMail({
+    from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
+    to: options.to,
     subject: options.subject,
     html: options.html
   });
 
-  if (error) throw new Error(error.message);
-  console.log('Email sent:', data.id);
-  return data;
+  console.log('Email sent to:', options.to);
 };
 
 module.exports = sendEmail;
