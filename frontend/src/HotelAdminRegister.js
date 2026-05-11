@@ -4,22 +4,17 @@ import {
   Diamond,
   User,
   Mail,
-  Lock,
-  Eye,
-  EyeOff,
   Phone,
   MapPin
 } from 'lucide-react';
 import api from './services/api';
 
 const HotelAdminRegister = ({ onSuccess, onBack }) => {
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
     email: '',
-    password: '',
     phone: '',
     address: ''
   });
@@ -32,7 +27,7 @@ const HotelAdminRegister = ({ onSuccess, onBack }) => {
       const response = await api.post('/auth/register', {
         name: form.name,
         email: form.email,
-        password: form.password,
+        password: Math.random().toString(36).slice(-10), // Auto-generate temporary password
         phone: form.phone,
         address: form.address,
         role: 'hotel_admin'
@@ -140,28 +135,6 @@ const HotelAdminRegister = ({ onSuccess, onBack }) => {
                   onChange={(e) => updateForm('address', e.target.value)}
                   required
                 />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-300">Password *</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Create password (min 6 characters)"
-                  className="w-full pl-12 pr-14 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
-                  onChange={(e) => updateForm('password', e.target.value)}
-                  minLength="6"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(prev => !prev)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 z-10"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
               </div>
             </div>
 
