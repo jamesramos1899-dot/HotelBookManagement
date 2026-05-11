@@ -91,9 +91,6 @@ exports.getMe = async (req, res) => {
   res.json({ success: true, data: user });
 };
 
-// ================= APPROVE HOTEL ADMIN =================
-// ================= APPROVE HOTEL ADMIN =================
-// ================= APPROVE HOTEL ADMIN =================
 exports.approveHotelAdmin = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
@@ -114,29 +111,28 @@ exports.approveHotelAdmin = async (req, res) => {
     user.password = tempPassword;
     await user.save();
 
-    // Send email notification
-    try {
-      const sendEmail = require('../utils/sendEmail');
-      await sendEmail({
-        to: user.email,
-        subject: 'Your AI STAY Partner Account Has Been Approved!',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #06b6d4;">Welcome to AI STAY, ${user.name}!</h2>
-            <p>Your hotel partner application has been <strong>approved</strong> by our system administrator.</p>
-            <div style="background: #f8fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
-              <p><strong>Your Login Credentials:</strong></p>
-              <p>Email: ${user.email}</p>
-              <p>Temporary Password: <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;">${tempPassword}</code></p>
-            </div>
-            <p>Please login and change your password immediately.</p>
+    // ✅ Send email in BACKGROUND - does not block the response
+    const sendEmail = require('../utils/sendEmail');
+    sendEmail({
+      to: user.email,
+      subject: 'Your AI STAY Partner Account Has Been Approved!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #06b6d4;">Welcome to AI STAY, ${user.name}!</h2>
+          <p>Your hotel partner application has been <strong>approved</strong> by our system administrator.</p>
+          <div style="background: #f8fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <p><strong>Your Login Credentials:</strong></p>
+            <p>Email: ${user.email}</p>
+            <p>Temporary Password: <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px;">${tempPassword}</code></p>
           </div>
-        `
-      });
-    } catch (emailErr) {
-      console.log('Email failed:', emailErr.message);
-    }
+          <p>Please login and change your password immediately.</p>
+        </div>
+      `
+    }).catch(emailErr => {
+      console.log('Email failed:', emailErr.message); // Logs but doesn't block
+    });
 
+    // ✅ Respond immediately without waiting for email
     res.json({
       success: true,
       message: 'Hotel admin approved successfully',
