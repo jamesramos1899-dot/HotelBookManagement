@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import Swal from 'sweetalert2';
+import React, { useState } from "react";
+import Swal from "sweetalert2";
 import {
-  Diamond,
   Mail,
   Lock,
   Eye,
@@ -9,9 +8,9 @@ import {
   ArrowLeft,
   Loader2,
   User,
-  Phone
-} from 'lucide-react';
-import authService from './services/authService';
+  Phone,
+} from "lucide-react";
+import authService from "./services/authService";
 
 const Login = ({ onLogin, onBack, onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,15 +18,15 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
   const [showRegister, setShowRegister] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [form, setForm] = useState({
-    email: '',
-    password: ''
+    email: "",
+    password: "",
   });
   const [registerForm, setRegisterForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: ''
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const handleSubmit = async (e) => {
@@ -41,62 +40,61 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
         const user = result.data;
 
         // Check if hotel_admin is approved
-        if (user.role === 'hotel_admin' && !user.isApproved) {
+        if (user.role === "hotel_admin" && !user.isApproved) {
           Swal.fire({
-            icon: 'warning',
-            title: 'Account Pending Approval',
-            text: 'Your hotel admin account is waiting for system admin approval. Please check your email for updates.',
-            confirmButtonColor: '#06b6d4'
+            icon: "warning",
+            title: "Account Pending Approval",
+            text: "Your hotel admin account is waiting for system admin approval. Please check your email for updates.",
+            confirmButtonColor: "#06b6d4",
           });
           setLoading(false);
           return;
         }
 
         // Store user in localStorage
-        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem("user", JSON.stringify(user));
 
         Swal.fire({
-          icon: 'success',
-          title: 'Welcome Back!',
+          icon: "success",
+          title: "Welcome Back!",
           text: `Logged in as ${user.name}`,
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
 
         onLogin(user);
-            } else {
+      } else {
         Swal.fire({
-          icon: 'error',
-          title: 'Login Failed',
-          text: result.error || 'Invalid credentials',
-          confirmButtonColor: '#ef4444'
+          icon: "error",
+          title: "Login Failed",
+          text: result.error || "Invalid credentials",
+          confirmButtonColor: "#ef4444",
         });
         setLoading(false);
         return;
       }
-        } catch (error) {
+    } catch (error) {
       Swal.fire({
-        icon: 'error',
-        title: 'Login Failed',
-        text: error.response?.data?.error || 'Something went wrong',
-        confirmButtonColor: '#ef4444'
+        icon: "error",
+        title: "Login Failed",
+        text: error.response?.data?.error || "Something went wrong",
+        confirmButtonColor: "#ef4444",
       });
       setLoading(false);
       return;
     } finally {
-      
     }
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    
+
     if (registerForm.password !== registerForm.confirmPassword) {
       Swal.fire({
-        icon: 'error',
-        title: 'Password Mismatch',
-        text: 'Passwords do not match. Please try again.',
-        confirmButtonColor: '#ef4444'
+        icon: "error",
+        title: "Password Mismatch",
+        text: "Passwords do not match. Please try again.",
+        confirmButtonColor: "#ef4444",
       });
       return;
     }
@@ -109,38 +107,38 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
         email: registerForm.email,
         phone: registerForm.phone,
         password: registerForm.password,
-        role: 'user'
+        role: "user",
       });
 
       if (result.success) {
         Swal.fire({
-          icon: 'success',
-          title: 'Registration Successful!',
-          text: 'Your account has been created successfully! You can now sign in.',
-          confirmButtonColor: '#06b6d4'
+          icon: "success",
+          title: "Registration Successful!",
+          text: "Your account has been created successfully! You can now sign in.",
+          confirmButtonColor: "#06b6d4",
         });
         setShowRegister(false);
         setRegisterForm({
-          name: '',
-          email: '',
-          phone: '',
-          password: '',
-          confirmPassword: ''
+          name: "",
+          email: "",
+          phone: "",
+          password: "",
+          confirmPassword: "",
         });
       } else {
         Swal.fire({
-          icon: 'error',
-          title: 'Registration Failed',
-          text: result.error || 'Something went wrong',
-          confirmButtonColor: '#ef4444'
+          icon: "error",
+          title: "Registration Failed",
+          text: result.error || "Something went wrong",
+          confirmButtonColor: "#ef4444",
         });
       }
     } catch (error) {
       Swal.fire({
-        icon: 'error',
-        title: 'Registration Failed',
-        text: error.response?.data?.error || 'Something went wrong',
-        confirmButtonColor: '#ef4444'
+        icon: "error",
+        title: "Registration Failed",
+        text: error.response?.data?.error || "Something went wrong",
+        confirmButtonColor: "#ef4444",
       });
     } finally {
       setRegisterLoading(false);
@@ -149,9 +147,11 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
 
   const handlePartnerClick = () => {
     if (onNavigate) {
-      onNavigate('partner');
+      onNavigate("partner");
     } else {
-      window.dispatchEvent(new CustomEvent('navigate', { detail: 'hotel-admin-register' }));
+      window.dispatchEvent(
+        new CustomEvent("navigate", { detail: "hotel-admin-register" }),
+      );
     }
   };
 
@@ -165,7 +165,7 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
 
       <div className="relative z-10 w-full max-w-md">
         {/* Back Button */}
-        <button 
+        <button
           onClick={onBack}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
         >
@@ -175,9 +175,146 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2">
-            <Diamond className="w-10 h-10 text-cyan-400" />
-            <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              AI STAY
+            <svg
+              width="44"
+              height="44"
+              viewBox="0 0 680 680"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="340" cy="340" r="320" fill="#1a1f36" />
+              <circle
+                cx="340"
+                cy="340"
+                r="305"
+                fill="none"
+                stroke="#f5c842"
+                strokeWidth="3"
+                strokeDasharray="6 5"
+              />
+              <rect
+                x="310"
+                y="240"
+                width="60"
+                height="115"
+                rx="3"
+                fill="#f5c842"
+              />
+              <polygon points="340,205 300,240 380,240" fill="#f5c842" />
+              <rect
+                x="334"
+                y="198"
+                width="12"
+                height="10"
+                rx="2"
+                fill="#d4a918"
+              />
+              <line
+                x1="340"
+                y1="182"
+                x2="340"
+                y2="200"
+                stroke="#d4a918"
+                strokeWidth="2"
+              />
+              <polygon points="340,182 356,187 340,192" fill="#ffffff" />
+              <rect
+                x="318"
+                y="250"
+                width="10"
+                height="10"
+                rx="1"
+                fill="#1a1f36"
+              />
+              <rect
+                x="335"
+                y="250"
+                width="10"
+                height="10"
+                rx="1"
+                fill="#ffffff"
+                opacity="0.85"
+              />
+              <rect
+                x="352"
+                y="250"
+                width="10"
+                height="10"
+                rx="1"
+                fill="#1a1f36"
+              />
+              <rect
+                x="318"
+                y="266"
+                width="10"
+                height="10"
+                rx="1"
+                fill="#ffffff"
+                opacity="0.85"
+              />
+              <rect
+                x="335"
+                y="266"
+                width="10"
+                height="10"
+                rx="1"
+                fill="#1a1f36"
+              />
+              <rect
+                x="352"
+                y="266"
+                width="10"
+                height="10"
+                rx="1"
+                fill="#ffffff"
+                opacity="0.85"
+              />
+              <rect
+                x="333"
+                y="330"
+                width="14"
+                height="25"
+                rx="2"
+                fill="#1a1f36"
+              />
+              <path
+                d="M185 390 Q262 370 340 380 Q418 370 495 390 L495 440 Q418 420 340 430 Q262 420 185 440 Z"
+                fill="#232a4a"
+              />
+              <line
+                x1="340"
+                y1="380"
+                x2="340"
+                y2="440"
+                stroke="#f5c842"
+                strokeWidth="2"
+              />
+              <circle cx="230" cy="300" r="5" fill="#f5c842" />
+              <circle cx="255" cy="275" r="4" fill="#8ca0cc" />
+              <line
+                x1="234"
+                y1="298"
+                x2="252"
+                y2="278"
+                stroke="#f5c842"
+                strokeWidth="1.5"
+              />
+              <circle cx="450" cy="300" r="5" fill="#f5c842" />
+              <circle cx="425" cy="275" r="4" fill="#8ca0cc" />
+              <line
+                x1="446"
+                y1="298"
+                x2="428"
+                y2="278"
+                stroke="#f5c842"
+                strokeWidth="1.5"
+              />
+            </svg>
+            <span className="text-3xl font-bold">
+              <span className="text-yellow-400">AI</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                {" "}
+                Stay
+              </span>
             </span>
           </div>
         </div>
@@ -202,7 +339,9 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     type="email"
                     placeholder="Enter your email"
                     className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, email: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -214,18 +353,24 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter password"
                     className="w-full pl-12 pr-14 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(prev => !prev)}
+                    onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 z-10"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -242,15 +387,15 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     Signing in...
                   </span>
                 ) : (
-                  'Sign In'
+                  "Sign In"
                 )}
               </button>
             </form>
 
             {/* Register Link */}
             <p className="text-center text-gray-400 text-sm mt-6">
-              Don&apos;t have an account?{' '}
-              <button 
+              Don&apos;t have an account?{" "}
+              <button
                 onClick={() => setShowRegister(true)}
                 className="text-cyan-400 hover:text-cyan-300 transition-colors"
               >
@@ -259,8 +404,8 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
             </p>
 
             <p className="text-center text-gray-500 text-xs mt-4">
-              Are you a hotel owner?{' '}
-              <button 
+              Are you a hotel owner?{" "}
+              <button
                 onClick={handlePartnerClick}
                 className="text-purple-400 hover:text-purple-300 transition-colors"
               >
@@ -289,7 +434,9 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     placeholder="Enter your full name"
                     className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
                     value={registerForm.name}
-                    onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({ ...registerForm, name: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -305,7 +452,12 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     placeholder="Enter your email"
                     className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
                     value={registerForm.email}
-                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        email: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -321,7 +473,12 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     placeholder="Enter your phone number"
                     className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
                     value={registerForm.phone}
-                    onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        phone: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -337,7 +494,12 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     placeholder="Create a password"
                     className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
                     value={registerForm.password}
-                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        password: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -345,7 +507,9 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
 
               {/* CONFIRM PASSWORD */}
               <div>
-                <label className="text-sm text-gray-300">Confirm Password</label>
+                <label className="text-sm text-gray-300">
+                  Confirm Password
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -353,7 +517,12 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     placeholder="Confirm your password"
                     className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
                     value={registerForm.confirmPassword}
-                    onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        confirmPassword: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -371,15 +540,15 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                     Creating Account...
                   </span>
                 ) : (
-                  'Create Account'
+                  "Create Account"
                 )}
               </button>
             </form>
 
             {/* Back to Login */}
             <p className="text-center text-gray-400 text-sm mt-6">
-              Already have an account?{' '}
-              <button 
+              Already have an account?{" "}
+              <button
                 onClick={() => setShowRegister(false)}
                 className="text-cyan-400 hover:text-cyan-300 transition-colors"
               >

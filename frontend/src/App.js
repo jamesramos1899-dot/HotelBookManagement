@@ -189,7 +189,7 @@ const App = () => {
               <span className="block bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Perfect Escape</span>
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Experience the future of hospitality with AI-curated luxury stays tailored to your desires.
+              Experience the future of luxury hospitality with our curated selection of exclusive properties.
             </p>
           </div>
 
