@@ -13,6 +13,7 @@ import { getMyHotelBookings } from './services/bookingService';
 import api from './services/api';
 import Swal from 'sweetalert2';
 import { jsPDF } from 'jspdf';
+import { getHotelConversations, getGuestConversation, replyToGuest } from './services/chatService';
 import autoTable from 'jspdf-autotable';
 
 // ALERT MODAL
@@ -517,11 +518,18 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
   const [editingRoom, setEditingRoom] = useState(null);
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [editingHotel, setEditingHotel] = useState(null);
-    const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const fileInputRef = useRef(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+const fileInputRef = useRef(null);
+const [guestConversations, setGuestConversations] = useState([]);
+const [activeGuestId, setActiveGuestId] = useState(null);
+const [activeGuestName, setActiveGuestName] = useState('');
+const [adminChatMessages, setAdminChatMessages] = useState([]);
+const [adminChatInput, setAdminChatInput] = useState('');
+const [adminChatLoading, setAdminChatLoading] = useState(false);
 
     useEffect(() => { 
     fetchData(); 
+    fetchGuestConversations();
     // Load avatar from localStorage on mount
     const stored = JSON.parse(localStorage.getItem('user') || '{}');
     if (stored.avatar) {
@@ -562,6 +570,40 @@ const fetchData = async () => {
   } finally {
     setLoading(false);
   }
+};
+const fetchGuestConversations = async () => {
+  try {
+    const res = await getHotelConversations();
+    if (res.success) setGuestConversations(res.data);
+  } catch (err) {
+    console.error('Failed to fetch guest conversations', err);
+  }
+};
+
+const openGuestChat = async (guestId, guestName) => {
+  setActiveGuestId(guestId);
+  setActiveGuestName(guestName);
+  try {
+    const res = await getGuestConversation(guestId);
+    if (res.success) setAdminChatMessages(res.data.messages || []);
+  } catch (err) {
+    setAdminChatMessages([]);
+  }
+};
+
+const handleAdminSendMessage = async () => {
+  if (!adminChatInput.trim() || !activeGuestId) return;
+  setAdminChatLoading(true);
+  try {
+    const res = await replyToGuest(activeGuestId, adminChatInput.trim());
+    if (res.success) {
+      setAdminChatMessages(prev => [...prev, res.data]);
+      setAdminChatInput('');
+    }
+  } catch (err) {
+    console.error('Failed to send reply', err);
+  }
+  setAdminChatLoading(false);
 };
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
@@ -680,6 +722,7 @@ const fetchData = async () => {
         <SidebarItem icon={Calendar} label="All Bookings" active={activeTab === 'bookings'} onClick={() => setActiveTab('bookings')} badge={bookings.length} />
         <SidebarItem icon={MessageSquare} label="All Reviews" active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} badge={reviews.length} />
         <SidebarItem icon={TrendingUp} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
+<SidebarItem icon={MessageSquare} label="Messages" active={activeTab === 'messages'} onClick={() => { setActiveTab('messages'); fetchGuestConversations(); }} badge={guestConversations.length} />
       </nav>
 
       <div className="pt-6 border-t border-white/10">
@@ -1107,6 +1150,76 @@ const ReportsView = () => {
           {activeTab === 'bookings' && <BookingsView />}
           {activeTab === 'reviews' && <ReviewsView />}
           {activeTab === 'reports' && <ReportsView />}
+{activeTab === 'messages' && (
+  <div className="flex h-full gap-4" style={{ minHeight: '70vh' }}>
+    <div className="w-64 bg-white/5 rounded-2xl border border-white/10 p-4 flex flex-col gap-2 overflow-y-auto">
+      <h3 className="font-bold text-sm text-gray-400 uppercase tracking-wider mb-2">Guest Messages</h3>
+      {guestConversations.length === 0 && (
+        <p className="text-gray-500 text-sm text-center mt-4">No guest messages yet.</p>
+      )}
+      {guestConversations.map(conv => (
+        <button
+          key={conv.guestId}
+          onClick={() => openGuestChat(conv.guestId, conv.guestName)}
+          className={`w-full text-left p-3 rounded-xl transition-all ${activeGuestId === conv.guestId ? 'bg-cyan-500/20 border border-cyan-500/30' : 'bg-white/5 hover:bg-white/10'}`}
+        >
+          <p className="font-medium text-sm">{conv.guestName}</p>
+          <p className="text-xs text-gray-500 truncate">{conv.lastMessage || 'No messages yet'}</p>
+        </button>
+      ))}
+    </div>
+    <div className="flex-1 bg-white/5 rounded-2xl border border-white/10 flex flex-col">
+      {!activeGuestId ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">Select a guest conversation to reply</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="p-4 border-b border-white/10">
+            <h3 className="font-bold">{activeGuestName}</h3>
+            <p className="text-xs text-gray-400">Guest conversation</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: '50vh' }}>
+           {adminChatMessages.map((msg, idx) => (
+  <div key={idx} className={`flex flex-col ${msg.senderRole === 'hotel_admin' ? 'items-end' : 'items-start'}`}>
+    <p className="text-xs text-gray-500 mb-1 px-1">
+      {msg.senderRole === 'hotel_admin' ? 'You' : activeGuestName}
+    </p>
+    <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${msg.senderRole === 'hotel_admin' ? 'bg-cyan-500/30 text-white' : 'bg-white/10 text-gray-200'}`}>
+      <p>{msg.message}</p>
+      <p className="text-xs opacity-50 mt-1">{msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}</p>
+    </div>
+  </div>
+))}
+            {adminChatMessages.length === 0 && (
+              <p className="text-center text-gray-500 text-sm mt-8">No messages yet.</p>
+            )}
+          </div>
+          <div className="p-4 border-t border-white/10 flex gap-3">
+            <input
+              type="text"
+              value={adminChatInput}
+              onChange={(e) => setAdminChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdminSendMessage()}
+              placeholder="Type a reply..."
+              className="flex-1 p-3 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+            />
+            <button
+              onClick={handleAdminSendMessage}
+              disabled={adminChatLoading || !adminChatInput.trim()}
+              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
         </div>
       </div>
     </div>

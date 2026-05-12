@@ -17,9 +17,10 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import axios from "axios";
 import BookingReceipts from './components/BookingReceipts';
+import { getMyConversations, getConversation, sendMessage } from './services/chatService';
 
 // StripePayment
-const stripePromise = loadStripe("pk_test_51TLcTACNevQjxpY3ADVTELinkSwuxkK1eORQKnYzO0KKUBOJvLvDyEgR1PTxx9aaEY3Zc9aJgFM3UZbZ82A8WVah00yJO5SG2x");
+const stripePromise = loadStripe("pk_test_51SWY09FDjQoE7GfAD7rORu9gP4QcTmCWWBTO5d3tFEwdA3xCs0Jf97tl8kOBTStxSVvXB3a1TSe53GD7x14Re8O1005shklq01");
 
 
 const StripePaymentForm = ({ amount, room, checkIn, checkOut, onSuccess, onError }) => {
@@ -805,7 +806,7 @@ const Profile = ({
     </div>
   );
 };
-const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave, handleToggleFavorite, favoriteIds, isAdmin, handleDeleteHotel, setReviewModal, setReviewsModal }) => {
+const HotelCard = ({ hotel, onBookNow, onInquire, isHovered, onHover, onLeave, handleToggleFavorite, favoriteIds, isAdmin, handleDeleteHotel, setReviewModal, setReviewsModal }) => {
     const isFav = favoriteIds.has(hotel.id);
     const [expandedBookings, setExpandedBookings] = useState({});
     
@@ -994,12 +995,19 @@ const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave, handleToggle
                 Review
               </button>
               
-              <button 
-                onClick={() => onBookNow(hotel)}
-                className="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white"
-              >
-                Book Now
-              </button>
+             <button 
+  onClick={() => onInquire && onInquire(hotel)}
+  className="px-3 py-2 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-sm"
+>
+  <MessageSquare className="w-4 h-4" />
+  Inquire
+</button>
+<button 
+  onClick={() => onBookNow(hotel)}
+  className="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white"
+>
+  Book Now
+</button>
             </div>
           </div>
         </div>
@@ -1024,7 +1032,8 @@ const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave, handleToggle
   handleDeleteHotel, 
   setReviewModal, 
   setReviewsModal,
-  guestOptions
+  guestOptions,
+  openChat
 }) => {
   return (
     <div className="space-y-6">
@@ -1103,6 +1112,7 @@ const HotelCard = ({ hotel, onBookNow, isHovered, onHover, onLeave, handleToggle
               key={hotel.id} 
               hotel={hotel} 
               onBookNow={handleBookNow}
+              onInquire={(h) => openChat(h.id, h.name)}
               isHovered={hoveredHotel === hotel.id}
               onHover={() => setHoveredHotel(hotel.id)}
               onLeave={() => setHoveredHotel(null)}
@@ -1152,6 +1162,12 @@ const Dashboard = ({ user, onLogout }) => {
   
   const [receiptData, setReceiptData] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
+const [conversations, setConversations] = useState([]);
+const [activeChatHotelId, setActiveChatHotelId] = useState(null);
+const [activeChatHotelName, setActiveChatHotelName] = useState('');
+const [chatMessages, setChatMessages] = useState([]);
+const [chatInput, setChatInput] = useState('');
+const [chatLoading, setChatLoading] = useState(false);
 
   const [alertModal, setAlertModal] = useState({
     isOpen: false,
@@ -1213,11 +1229,12 @@ const Dashboard = ({ user, onLogout }) => {
   }, [modalCheckIn, modalCheckOut]);
 
    useEffect(() => {
-    fetchHotels();
-    fetchMyBookings();
-    fetchFavorites();
-    fetchUserProfile();
-  }, []);
+  fetchHotels();
+  fetchMyBookings();
+  fetchFavorites();
+  fetchUserProfile();
+  fetchConversations();
+}, []);
 
   // Re-fetch favorites when navigating to favorites tab to ensure sync
   useEffect(() => {
@@ -1282,6 +1299,43 @@ const Dashboard = ({ user, onLogout }) => {
           baseUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
           avatarUrl = baseUrl + '/' + avatarUrl.replace(/^\//, '');
         }
+
+        const fetchConversations = async () => {
+  try {
+    const res = await getMyConversations();
+    if (res.success) setConversations(res.data);
+  } catch (err) {
+    console.error('Failed to fetch conversations', err);
+  }
+};
+
+const openChat = async (hotelId, hotelName) => {
+  setActiveChatHotelId(hotelId);
+  setActiveChatHotelName(hotelName);
+  setActiveTab('chat');
+  try {
+    const res = await getConversation(hotelId);
+    if (res.success) setChatMessages(res.data.messages || []);
+  } catch (err) {
+    setChatMessages([]);
+  }
+};
+
+const handleSendMessage = async () => {
+  if (!chatInput.trim() || !activeChatHotelId) return;
+  setChatLoading(true);
+  try {
+    const res = await sendMessage(activeChatHotelId, chatInput.trim());
+    if (res.success) {
+      setChatMessages(prev => [...prev, res.data]);
+      setChatInput('');
+      fetchConversations();
+    }
+  } catch (err) {
+    console.error('Failed to send message', err);
+  }
+  setChatLoading(false);
+};
         
         const updatedProfile = {
           name: userData.name || '',
@@ -1897,6 +1951,7 @@ const today = new Date(
         <SidebarItem icon={BookOpen} label="My Bookings" active={activeTab === 'bookings'} onClick={() => setActiveTab('bookings')} badge={myBookings.length} />
         <SidebarItem icon={Heart} label="Favorites" active={activeTab === 'favorites'} onClick={() => setActiveTab('favorites')} badge={favorites.length} />
         <SidebarItem icon={User} label="Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+<SidebarItem icon={MessageSquare} label="Messages" active={activeTab === 'chat'} onClick={() => { setActiveTab('chat'); fetchConversations(); }} badge={conversations.length} />
       </nav>
       <div className="pt-6 border-t border-white/10">
         <div className="flex items-center gap-3 mb-4">
@@ -2144,6 +2199,7 @@ const today = new Date(
                 handleDeleteHotel={handleDeleteHotel}
                 setReviewModal={setReviewModal}
                 setReviewsModal={setReviewsModal}
+                onInquire={(h) => openChat(h.id, h.name)}
               />
             );
           })}
@@ -2528,8 +2584,81 @@ const today = new Date(
             setReviewModal={setReviewModal}
             setReviewsModal={setReviewsModal}
             guestOptions={guestOptions}
+            openChat={openChat}
           />}
           {activeTab === 'bookings' && <MyBookings />}
+{activeTab === 'chat' && (
+  <div className="flex h-full gap-4">
+    {/* Conversations list */}
+    <div className="w-64 bg-white/5 rounded-2xl border border-white/10 p-4 flex flex-col gap-2 overflow-y-auto">
+      <h3 className="font-bold text-sm text-gray-400 uppercase tracking-wider mb-2">Conversations</h3>
+      {conversations.length === 0 && (
+        <p className="text-gray-500 text-sm text-center mt-4">No conversations yet. Click Inquire on a hotel to start chatting.</p>
+      )}
+      {conversations.map(conv => (
+        <button
+          key={conv.hotelId}
+          onClick={() => openChat(conv.hotelId, conv.hotelName)}
+          className={`w-full text-left p-3 rounded-xl transition-all ${activeChatHotelId === conv.hotelId ? 'bg-cyan-500/20 border border-cyan-500/30' : 'bg-white/5 hover:bg-white/10'}`}
+        >
+          <p className="font-medium text-sm">{conv.hotelName}</p>
+          <p className="text-xs text-gray-500 truncate">{conv.lastMessage || 'No messages yet'}</p>
+        </button>
+      ))}
+    </div>
+    {/* Chat window */}
+    <div className="flex-1 bg-white/5 rounded-2xl border border-white/10 flex flex-col">
+      {!activeChatHotelId ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">Select a conversation or inquire about a hotel</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="p-4 border-b border-white/10">
+            <h3 className="font-bold">{activeChatHotelName}</h3>
+            <p className="text-xs text-gray-400">Hotel support chat</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {chatMessages.map((msg, idx) => (
+  <div key={idx} className={`flex flex-col ${msg.senderRole === 'user' ? 'items-end' : 'items-start'}`}>
+    <p className="text-xs text-gray-500 mb-1 px-1">
+      {msg.senderRole === 'user' ? 'You' : activeChatHotelName}
+    </p>
+    <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${msg.senderRole === 'user' ? 'bg-cyan-500/30 text-white' : 'bg-white/10 text-gray-200'}`}>
+      <p>{msg.message}</p>
+      <p className="text-xs opacity-50 mt-1">{msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}</p>
+    </div>
+  </div>
+))}
+            {chatMessages.length === 0 && (
+              <p className="text-center text-gray-500 text-sm mt-8">No messages yet. Say hello!</p>
+            )}
+          </div>
+          <div className="p-4 border-t border-white/10 flex gap-3">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder="Type a message..."
+              className="flex-1 p-3 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={chatLoading || !chatInput.trim()}
+              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium disabled:opacity-50 transition-all"
+            >
+              Send
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
           {activeTab === 'favorites' && <Favorites />}
           {activeTab === 'profile' && (
    <Profile 
