@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Users, Star, MapPin, ChevronRight, Sparkles, Shield, Clock, Wifi, Car, Coffee, Waves, Diamond } from 'lucide-react';
+import { Search, Calendar, Users, Star, MapPin, ChevronRight, Sparkles, Shield, Clock, Wifi, Car, Coffee, Waves } from 'lucide-react';
 import Login from './Login';
 import Dashboard from './Dashboard';
 import HotelAdminDashboard from './HotelAdminDashboard';
@@ -111,10 +111,34 @@ const App = () => {
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
 
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-            <Diamond className="w-8 h-8 text-cyan-400" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              AI STAY
-            </span>
+            <svg width="36" height="36" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="340" cy="340" r="320" fill="#1a1f36"/>
+  <circle cx="340" cy="340" r="305" fill="none" stroke="#f5c842" strokeWidth="3" strokeDasharray="6 5"/>
+  <rect x="310" y="240" width="60" height="115" rx="3" fill="#f5c842"/>
+  <polygon points="340,205 300,240 380,240" fill="#f5c842"/>
+  <rect x="334" y="198" width="12" height="10" rx="2" fill="#d4a918"/>
+  <line x1="340" y1="182" x2="340" y2="200" stroke="#d4a918" strokeWidth="2"/>
+  <polygon points="340,182 356,187 340,192" fill="#ffffff"/>
+  <rect x="318" y="250" width="10" height="10" rx="1" fill="#1a1f36"/>
+  <rect x="335" y="250" width="10" height="10" rx="1" fill="#ffffff" opacity="0.85"/>
+  <rect x="352" y="250" width="10" height="10" rx="1" fill="#1a1f36"/>
+  <rect x="318" y="266" width="10" height="10" rx="1" fill="#ffffff" opacity="0.85"/>
+  <rect x="335" y="266" width="10" height="10" rx="1" fill="#1a1f36"/>
+  <rect x="352" y="266" width="10" height="10" rx="1" fill="#ffffff" opacity="0.85"/>
+  <rect x="333" y="330" width="14" height="25" rx="2" fill="#1a1f36"/>
+  <path d="M185 390 Q262 370 340 380 Q418 370 495 390 L495 440 Q418 420 340 430 Q262 420 185 440 Z" fill="#232a4a"/>
+  <line x1="340" y1="380" x2="340" y2="440" stroke="#f5c842" strokeWidth="2"/>
+  <circle cx="230" cy="300" r="5" fill="#f5c842"/>
+  <circle cx="255" cy="275" r="4" fill="#8ca0cc"/>
+  <line x1="234" y1="298" x2="252" y2="278" stroke="#f5c842" strokeWidth="1.5"/>
+  <circle cx="450" cy="300" r="5" fill="#f5c842"/>
+  <circle cx="425" cy="275" r="4" fill="#8ca0cc"/>
+  <line x1="446" y1="298" x2="428" y2="278" stroke="#f5c842" strokeWidth="1.5"/>
+</svg>
+<span className="text-2xl font-bold">
+  <span className="text-yellow-400">AI</span>
+  <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"> Stay</span>
+</span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
@@ -275,8 +299,21 @@ const App = () => {
       <footer className="relative z-10 border-t border-white/10 py-12 px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
-            <Diamond className="w-6 h-6 text-cyan-400" />
-            <span className="text-xl font-bold">AI STAY</span>
+            <svg width="28" height="28" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="340" cy="340" r="320" fill="#1a1f36"/>
+  <circle cx="340" cy="340" r="305" fill="none" stroke="#f5c842" strokeWidth="3" strokeDasharray="6 5"/>
+  <rect x="310" y="240" width="60" height="115" rx="3" fill="#f5c842"/>
+  <polygon points="340,205 300,240 380,240" fill="#f5c842"/>
+  <rect x="334" y="198" width="12" height="10" rx="2" fill="#d4a918"/>
+  <line x1="340" y1="182" x2="340" y2="200" stroke="#d4a918" strokeWidth="2"/>
+  <polygon points="340,182 356,187 340,192" fill="#ffffff"/>
+  <rect x="333" y="330" width="14" height="25" rx="2" fill="#1a1f36"/>
+  <path d="M185 390 Q262 370 340 380 Q418 370 495 390 L495 440 Q418 420 340 430 Q262 420 185 440 Z" fill="#232a4a"/>
+  <line x1="340" y1="380" x2="340" y2="440" stroke="#f5c842" strokeWidth="2"/>
+</svg>
+<span className="text-xl font-bold">
+  <span className="text-yellow-400">AI</span> Stay
+</span>
           </div>
           <p className="text-gray-500 text-sm">© 2026 AI STAY. The future of luxury hospitality.</p>
           <div className="flex gap-6">
