@@ -368,7 +368,7 @@ const HotelCard = ({ image, name, location, price, rating, tags, featured }) => 
       </div>
       <div className="flex justify-between items-center pt-4 border-t border-white/10">
         <div>
-          <span className="text-2xl font-bold text-cyan-400">${price}</span>
+          <span className="text-2xl font-bold text-cyan-400">₱{price}</span>
           <span className="text-gray-500 text-sm">/night</span>
         </div>
         <button className="px-4 py-2 bg-white/10 hover:bg-cyan-500 rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25">
