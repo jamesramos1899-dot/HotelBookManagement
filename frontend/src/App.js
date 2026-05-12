@@ -182,7 +182,7 @@ const App = () => {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 mb-6">
               <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm text-gray-300">AI-Powered Luxury Booking</span>
+              <span className="text-sm text-gray-300">Luxury Hotel Booking</span>
             </div>
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
               Discover Your
@@ -231,29 +231,29 @@ const App = () => {
 
           <div className="grid md:grid-cols-3 gap-8">
             <HotelCard 
-              image="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80"
-              name="Azure Palace"
-              location="Maldives"
+              image="https://www.klook.com/en-PH/hotels/detail/253867-bai-hotel-cebu/"
+              name="Bai Hotel Cebu"
+              location="Mandaue City, Philippines"
               price="2,450"
               rating="4.9"
               tags={["Ocean View", "Private Pool"]}
             />
             <HotelCard 
-              image="https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=80"
-              name="Nebula Resort"
-              location="Dubai, UAE"
+              image="https://megaworldinternational.com/properties/belmont-hotel-mactan/"
+              name="Belmont Hotel Mactan"
+              location="Mactan, Philippines"
               price="3,200"
               rating="5.0"
-              tags={["City View", "SPA"]}
+              tags={["Seaview", "SPA"]}
               featured
             />
             <HotelCard 
-              image="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80"
-              name="Crystal Bay"
-              location="Bora Bora"
+              image="https://www.mandanibay.com/location/"
+              name="Mandani Bay"
+              location="Mandaue City, Philippines"
               price="4,100"
               rating="4.9"
-              tags={["Overwater", "Butler"]}
+              tags={["Seaview", "Beach Access"]}
             />
           </div>
         </div>
@@ -263,15 +263,15 @@ const App = () => {
       <section className="relative z-10 py-20 px-6 bg-gradient-to-b from-transparent via-purple-950/20 to-transparent">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">AI-Enhanced Experience</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">Our proprietary AI analyzes your preferences to craft the perfect stay</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Luxury Booking Experience</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">Our proprietary approach ensures a seamless and luxurious booking process for every guest.</p>
           </div>
 
           <div className="grid md:grid-cols-4 gap-6">
-            <FeatureCard icon={Sparkles} title="Smart Matching" desc="AI analyzes 50+ preferences to find your ideal property" />
+            <FeatureCard icon={Sparkles} title="Luxurious Hotel" desc="Experience unparalleled luxury at our handpicked properties" />
             <FeatureCard icon={Shield} title="Secure Booking" desc="Blockchain-verified transactions and identity protection" />
             <FeatureCard icon={Clock} title="Instant Confirm" desc="Real-time availability with immediate booking confirmation" />
-            <FeatureCard icon={Waves} title="24/7 Concierge" desc="AI assistant available around the clock for any request" />
+            <FeatureCard icon={Waves} title="24/7 Concierge" desc="Customer service available around the clock for any request" />
           </div>
         </div>
       </section>
@@ -368,7 +368,7 @@ const HotelCard = ({ image, name, location, price, rating, tags, featured }) => 
       </div>
       <div className="flex justify-between items-center pt-4 border-t border-white/10">
         <div>
-          <span className="text-2xl font-bold text-cyan-400">${price}</span>
+          <span className="text-2xl font-bold text-cyan-400">₱{price}</span>
           <span className="text-gray-500 text-sm">/night</span>
         </div>
         <button className="px-4 py-2 bg-white/10 hover:bg-cyan-500 rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25">
