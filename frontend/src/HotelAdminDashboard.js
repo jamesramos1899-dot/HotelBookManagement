@@ -527,9 +527,12 @@ const [adminChatMessages, setAdminChatMessages] = useState([]);
 const [adminChatInput, setAdminChatInput] = useState('');
 const [adminChatLoading, setAdminChatLoading] = useState(false);
 
-    useEffect(() => { 
-    fetchData(); 
-    fetchGuestConversations();
+   useEffect(() => { 
+  fetchData();
+  fetchGuestConversations();
+  return () => {
+    if (adminPollingRef.current) clearInterval(adminPollingRef.current);
+  };
     // Load avatar from localStorage on mount
     const stored = JSON.parse(localStorage.getItem('user') || '{}');
     if (stored.avatar) {
@@ -580,6 +583,8 @@ const fetchGuestConversations = async () => {
   }
 };
 
+const adminPollingRef = React.useRef(null);
+
 const openGuestChat = async (guestId, guestName) => {
   setActiveGuestId(guestId);
   setActiveGuestName(guestName);
@@ -589,6 +594,17 @@ const openGuestChat = async (guestId, guestName) => {
   } catch (err) {
     setAdminChatMessages([]);
   }
+
+  // Clear any existing polling
+  if (adminPollingRef.current) clearInterval(adminPollingRef.current);
+
+  // Poll every 3 seconds
+  adminPollingRef.current = setInterval(async () => {
+    try {
+      const res = await getGuestConversation(guestId);
+      if (res.success) setAdminChatMessages(res.data.messages || []);
+    } catch (err) {}
+  }, 3000);
 };
 
 const handleAdminSendMessage = async () => {

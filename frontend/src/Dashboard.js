@@ -1458,10 +1458,15 @@ const Dashboard = ({ user, onLogout }) => {
 
   // Re-fetch favorites when navigating to favorites tab to ensure sync
   useEffect(() => {
-    if (activeTab === "favorites") {
-      fetchFavorites();
-    }
-  }, [activeTab]);
+  if (activeTab === 'favorites') {
+    fetchFavorites();
+  }
+  // Stop polling when leaving chat tab
+  if (activeTab !== 'chat' && chatPollingRef.current) {
+    clearInterval(chatPollingRef.current);
+    chatPollingRef.current = null;
+  }
+}, [activeTab]);
 
   useEffect(() => {
     if (selectedRoom && bookingStep === "dates") {
@@ -1555,17 +1560,30 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  const openChat = async (hotelId, hotelName) => {
-    setActiveChatHotelId(hotelId);
-    setActiveChatHotelName(hotelName);
-    setActiveTab("chat");
+  const chatPollingRef = React.useRef(null);
+
+const openChat = async (hotelId, hotelName) => {
+  setActiveChatHotelId(hotelId);
+  setActiveChatHotelName(hotelName);
+  setActiveTab('chat');
+  try {
+    const res = await getConversation(hotelId);
+    if (res.success) setChatMessages(res.data.messages || []);
+  } catch (err) {
+    setChatMessages([]);
+  }
+
+  // Clear any existing polling
+  if (chatPollingRef.current) clearInterval(chatPollingRef.current);
+
+  // Poll every 3 seconds
+  chatPollingRef.current = setInterval(async () => {
     try {
       const res = await getConversation(hotelId);
       if (res.success) setChatMessages(res.data.messages || []);
-    } catch (err) {
-      setChatMessages([]);
-    }
-  };
+    } catch (err) {}
+  }, 3000);
+};
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !activeChatHotelId) return;
