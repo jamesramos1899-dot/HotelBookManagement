@@ -231,29 +231,29 @@ const App = () => {
 
           <div className="grid md:grid-cols-3 gap-8">
             <HotelCard 
-              image="https://www.klook.com/en-PH/hotels/detail/253867-bai-hotel-cebu/"
-              name="Bai Hotel Cebu"
-              location="Mandaue City, Philippines"
+              image="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80"
+              name="Belmont Hotel"
+              location="Mactan, Philippines"
               price="2,450"
               rating="4.9"
               tags={["Ocean View", "Private Pool"]}
             />
             <HotelCard 
-              image="https://megaworldinternational.com/properties/belmont-hotel-mactan/"
-              name="Belmont Hotel Mactan"
-              location="Mactan, Philippines"
+              image="https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&q=80"
+              name="Mandani Bay Suites"
+              location="Mandaue, Philippines"
               price="3,200"
               rating="5.0"
-              tags={["Seaview", "SPA"]}
+              tags={["Sea View", "SPA"]}
               featured
             />
             <HotelCard 
-              image="https://www.mandanibay.com/location/"
-              name="Mandani Bay"
-              location="Mandaue City, Philippines"
+              image="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80"
+              name="Bai Hotel Cebu"
+              location="Cebu, Philippines"
               price="4,100"
               rating="4.9"
-              tags={["Seaview", "Beach Access"]}
+              tags={["Overwater", "Beach Access"]}
             />
           </div>
         </div>
@@ -271,7 +271,7 @@ const App = () => {
             <FeatureCard icon={Sparkles} title="Luxurious Hotel" desc="Experience unparalleled luxury at our handpicked properties" />
             <FeatureCard icon={Shield} title="Secure Booking" desc="Blockchain-verified transactions and identity protection" />
             <FeatureCard icon={Clock} title="Instant Confirm" desc="Real-time availability with immediate booking confirmation" />
-            <FeatureCard icon={Waves} title="24/7 Concierge" desc="Customer service available around the clock for any request" />
+            <FeatureCard icon={Waves} title="24/7 Concierge" desc="Customer Service available around the clock for any request" />
           </div>
         </div>
       </section>
@@ -368,7 +368,7 @@ const HotelCard = ({ image, name, location, price, rating, tags, featured }) => 
       </div>
       <div className="flex justify-between items-center pt-4 border-t border-white/10">
         <div>
-          <span className="text-2xl font-bold text-cyan-400">₱{price}</span>
+          <span className="text-2xl font-bold text-cyan-400">${price}</span>
           <span className="text-gray-500 text-sm">/night</span>
         </div>
         <button className="px-4 py-2 bg-white/10 hover:bg-cyan-500 rounded-xl font-medium transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25">
