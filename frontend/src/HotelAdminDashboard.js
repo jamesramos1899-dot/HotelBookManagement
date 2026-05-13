@@ -824,9 +824,7 @@ const handleAdminSendMessage = async () => {
             <div className="flex justify-between items-center p-3 bg-green-500/10 rounded-xl border border-green-500/30">
               <span className="text-green-400">Confirmed</span><span className="font-bold text-xl">{stats.confirmedBookings}</span>
             </div>
-            <div className="flex justify-between items-center p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/30">
-              <span className="text-yellow-400">Pending</span><span className="font-bold text-xl">{stats.pendingBookings}</span>
-            </div>
+            
             <div className="flex justify-between items-center p-3 bg-red-500/10 rounded-xl border border-red-500/30">
               <span className="text-red-400">Cancelled</span><span className="font-bold text-xl">{stats.cancelledBookings}</span>
             </div>
@@ -884,15 +882,7 @@ const handleAdminSendMessage = async () => {
             <div className="w-full bg-white/10 rounded-full h-2">
               <div className="bg-red-400 h-2 rounded-full transition-all" style={{ width: `${stats.totalBookings > 0 ? Math.round((stats.cancelledBookings / stats.totalBookings) * 100) : 0}%` }} />
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-gray-400 text-sm">Pending Rate</span>
-              <span className="text-yellow-400 font-bold">
-                {stats.totalBookings > 0 ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0}%
-              </span>
-            </div>
-            <div className="w-full bg-white/10 rounded-full h-2">
-              <div className="bg-yellow-400 h-2 rounded-full transition-all" style={{ width: `${stats.totalBookings > 0 ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0}%` }} />
-            </div>
+      
           </div>
         </div>
 
@@ -930,6 +920,7 @@ const handleAdminSendMessage = async () => {
               <div>
                 <p className="font-medium text-sm">Room #{booking.room?.roomNumber}</p>
                 <p className="text-xs text-gray-400 flex items-center gap-1"><User className="w-3 h-3" /> {booking.user?.name || 'Guest'}</p>
+<p className="text-xs text-gray-400 flex items-center gap-1"><Mail className="w-3 h-3" /> {booking.user?.email || 'No email'}</p>
               </div>
               <div className="text-right">
                 <span className={`text-xs px-2 py-1 rounded ${booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' : booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{booking.status}</span>
@@ -1136,17 +1127,17 @@ const ReportsView = () => {
     doc.text('Recent Bookings', 14, 100);
     
     const bookingData = bookings.map(b => [
-      b.room?.roomNumber || 'N/A',
-      b.user?.name || 'Guest',
-      new Date(b.checkInDate).toLocaleDateString(),
-      new Date(b.checkOutDate).toLocaleDateString(),
-            `PHP ${b.totalPrice}`,
-      b.status
-    ]);
+  b.room?.roomNumber || 'N/A',
+  b.user?.name || 'Guest',
+  new Date(b.checkInDate).toLocaleDateString(),
+  new Date(b.checkOutDate).toLocaleDateString(),
+  `PHP ${b.totalPrice}`,
+  b.status
+]);
     
         autoTable(doc, {
       startY: 105,
-      head: [['Room', 'Guest', 'Check-in', 'Check-out', 'Price', 'Status']],
+      head: [['Room', 'Guest', 'Email', 'Check-in', 'Check-out', 'Price', 'Status']],
       body: bookingData,
       theme: 'striped',
       headStyles: { fillColor: [6, 182, 212] }
@@ -1189,7 +1180,7 @@ const ReportsView = () => {
 
     const confirmRate = stats.totalBookings > 0 ? Math.round((stats.confirmedBookings / stats.totalBookings) * 100) : 0;
     const cancelRate = stats.totalBookings > 0 ? Math.round((stats.cancelledBookings / stats.totalBookings) * 100) : 0;
-    const pendingRate = stats.totalBookings > 0 ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0;
+  
     const avgRevenue = stats.confirmedBookings > 0 ? Math.round(stats.totalRevenue / stats.confirmedBookings) : 0;
 
     autoTable(doc, {
@@ -1198,7 +1189,6 @@ const ReportsView = () => {
       body: [
         ['Confirmation Rate', `${confirmRate}%`],
         ['Cancellation Rate', `${cancelRate}%`],
-        ['Pending Rate', `${pendingRate}%`],
         ['Total Revenue', `PHP ${stats.totalRevenue.toLocaleString()}`],
         ['Avg Revenue per Booking', `PHP ${avgRevenue.toLocaleString()}`],
         ['Average Rating', `${stats.averageRating} stars`],

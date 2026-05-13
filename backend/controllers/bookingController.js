@@ -220,7 +220,7 @@ exports.getHotelBookedDates = async (req, res) => {
   }
 };
 
-// ================= GET MY HOTEL BOOKINGS (FIXED SAFELY) =================
+// ================= GET MY HOTEL BOOKINGS =================
 exports.getMyHotelBookings = async (req, res) => {
   try {
     const bookings = await Booking.find()
@@ -228,7 +228,8 @@ exports.getMyHotelBookings = async (req, res) => {
         path: 'hotel',
         select: 'name owner'
       })
-      .populate('room');
+      .populate('room', 'roomNumber type pricePerNight')
+      .populate('user', 'name email phone');
 
     const filtered = bookings.filter(
       b => b.hotel && b.hotel.owner?.toString() === req.user.id
