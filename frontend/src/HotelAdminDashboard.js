@@ -545,7 +545,16 @@ const fetchData = async () => {
   try {
     // Get current user data
     const meRes = await api.get('/auth/me');
-    if (meRes.data.success) setCurrentUser(meRes.data.data);
+    if (meRes.data.success) {
+      const userData = meRes.data.data;
+      let avatarUrl = userData.avatar || '';
+      if (avatarUrl && !avatarUrl.startsWith('http')) {
+        let baseUrl = api.defaults.baseURL || window.location.origin;
+        baseUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+        avatarUrl = baseUrl + '/' + avatarUrl.replace(/^\//, '');
+      }
+      setCurrentUser({ ...userData, avatar: avatarUrl || userData.avatar });
+    }
 
     // Get hotel admin's hotel
     const hotelsRes = await getHotels();
@@ -726,7 +735,7 @@ const handleAdminSendMessage = async () => {
   }, [bookings, rooms, hotel, reviews]);
 
   const Sidebar = () => (
-    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
+    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col min-h-screen h-full">
       <div className="flex items-center gap-2 mb-8">
         <Building2 className="w-8 h-8 text-cyan-400" />
         <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Hotel Admin</span>
@@ -737,8 +746,8 @@ const handleAdminSendMessage = async () => {
         <SidebarItem icon={Building2} label="My Hotel" active={activeTab === 'hotel'} onClick={() => setActiveTab('hotel')} />
         <SidebarItem icon={Calendar} label="All Bookings" active={activeTab === 'bookings'} onClick={() => setActiveTab('bookings')} badge={bookings.length} />
         <SidebarItem icon={MessageSquare} label="All Reviews" active={activeTab === 'reviews'} onClick={() => setActiveTab('reviews')} badge={reviews.length} />
+        <SidebarItem icon={MessageSquare} label="Messages" active={activeTab === 'messages'} onClick={() => { setActiveTab('messages'); fetchGuestConversations(); }} badge={guestConversations.length} />
         <SidebarItem icon={TrendingUp} label="Reports" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-<SidebarItem icon={MessageSquare} label="Messages" active={activeTab === 'messages'} onClick={() => { setActiveTab('messages'); fetchGuestConversations(); }} badge={guestConversations.length} />
       </nav>
 
       <div className="pt-6 border-t border-white/10">
@@ -850,7 +859,69 @@ const handleAdminSendMessage = async () => {
           </div>
         </div>
       </div>
+    {/* ANALYTICS SECTION */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-cyan-400" /> Booking Analytics
+          </h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">Confirmation Rate</span>
+              <span className="text-green-400 font-bold">
+                {stats.totalBookings > 0 ? Math.round((stats.confirmedBookings / stats.totalBookings) * 100) : 0}%
+              </span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2">
+              <div className="bg-green-400 h-2 rounded-full transition-all" style={{ width: `${stats.totalBookings > 0 ? Math.round((stats.confirmedBookings / stats.totalBookings) * 100) : 0}%` }} />
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-gray-400 text-sm">Cancellation Rate</span>
+              <span className="text-red-400 font-bold">
+                {stats.totalBookings > 0 ? Math.round((stats.cancelledBookings / stats.totalBookings) * 100) : 0}%
+              </span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2">
+              <div className="bg-red-400 h-2 rounded-full transition-all" style={{ width: `${stats.totalBookings > 0 ? Math.round((stats.cancelledBookings / stats.totalBookings) * 100) : 0}%` }} />
+            </div>
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-gray-400 text-sm">Pending Rate</span>
+              <span className="text-yellow-400 font-bold">
+                {stats.totalBookings > 0 ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0}%
+              </span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2">
+              <div className="bg-yellow-400 h-2 rounded-full transition-all" style={{ width: `${stats.totalBookings > 0 ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0}%` }} />
+            </div>
+          </div>
+        </div>
 
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <PhilippinePeso className="w-5 h-5 text-green-400" /> Revenue Analytics
+          </h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+              <span className="text-gray-400 text-sm">Total Revenue</span>
+              <span className="text-green-400 font-bold">₱{stats.totalRevenue.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+              <span className="text-gray-400 text-sm">Avg Revenue / Booking</span>
+              <span className="text-cyan-400 font-bold">
+                ₱{stats.confirmedBookings > 0 ? Math.round(stats.totalRevenue / stats.confirmedBookings).toLocaleString() : 0}
+              </span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+              <span className="text-gray-400 text-sm">Avg Rating</span>
+              <span className="text-yellow-400 font-bold">{stats.averageRating} ⭐</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+              <span className="text-gray-400 text-sm">Total Rooms</span>
+              <span className="text-purple-400 font-bold">{stats.totalRooms} rooms</span>
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
         <h3 className="text-lg font-bold mb-4">Recent Bookings</h3>
         <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -1103,12 +1174,41 @@ const ReportsView = () => {
     });
     
     // Reviews Summary
-        const finalY2 = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : 160;
+    const finalY2 = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : 160;
     doc.setFontSize(14);
     doc.text('Reviews Summary', 14, finalY2);
     doc.setFontSize(11);
     doc.text(`Total Reviews: ${stats.totalReviews}`, 14, finalY2 + 7);
-    
+    doc.text(`Average Rating: ${stats.averageRating} stars`, 14, finalY2 + 14);
+
+    // Analytics Section
+    const finalY3 = finalY2 + 30;
+    doc.setFontSize(14);
+    doc.text('Analytics Overview', 14, finalY3);
+    doc.setFontSize(11);
+
+    const confirmRate = stats.totalBookings > 0 ? Math.round((stats.confirmedBookings / stats.totalBookings) * 100) : 0;
+    const cancelRate = stats.totalBookings > 0 ? Math.round((stats.cancelledBookings / stats.totalBookings) * 100) : 0;
+    const pendingRate = stats.totalBookings > 0 ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0;
+    const avgRevenue = stats.confirmedBookings > 0 ? Math.round(stats.totalRevenue / stats.confirmedBookings) : 0;
+
+    autoTable(doc, {
+      startY: finalY3 + 5,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Confirmation Rate', `${confirmRate}%`],
+        ['Cancellation Rate', `${cancelRate}%`],
+        ['Pending Rate', `${pendingRate}%`],
+        ['Total Revenue', `PHP ${stats.totalRevenue.toLocaleString()}`],
+        ['Avg Revenue per Booking', `PHP ${avgRevenue.toLocaleString()}`],
+        ['Average Rating', `${stats.averageRating} stars`],
+        ['Total Reviews', `${stats.totalReviews}`],
+        ['Total Rooms', `${stats.totalRooms}`],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [6, 182, 212] }
+    });
+
     doc.save(`hotel-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
