@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 import HotelAdminDashboard from './HotelAdminDashboard';
 import SystemAdminDashboard from './SystemAdminDashboard';
 import HotelAdminRegister from './HotelAdminRegister';
+import ResetPassword from './ResetPassword';
 import authService from './services/authService';
 import Swal from 'sweetalert2';
 
@@ -12,8 +13,16 @@ const App = () => {
   const [scrolled, setScrolled] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
   const [user, setUser] = useState(null);
-
+  const [resetToken, setResetToken] = useState(null);
     useEffect(() => {
+    // Check for reset password token in URL
+    const path = window.location.pathname;
+    const match = path.match(/\/reset-password\/(.+)/);
+    if (match) {
+      setResetToken(match[1]);
+      setCurrentPage('resetPassword');
+    }
+
     const loggedInUser = authService.getCurrentUser();
     if (loggedInUser && authService.isAuthenticated()) {
       setUser(loggedInUser);
@@ -69,6 +78,17 @@ const App = () => {
   // Guest/Customer Dashboard
   if (currentPage === 'dashboard' && user) {
     return <Dashboard user={user} onLogout={handleLogout} />;
+  }
+  // Reset Password Page
+  if (currentPage === 'resetPassword' && resetToken) {
+    return <ResetPassword
+      token={resetToken}
+      onBack={() => {
+        setCurrentPage('login');
+        setResetToken(null);
+        window.history.pushState({}, '', '/');
+      }}
+    />;
   }
 
     // Login Page

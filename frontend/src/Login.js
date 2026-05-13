@@ -17,6 +17,9 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -143,6 +146,45 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
     } finally {
       setRegisterLoading(false);
     }
+  };
+  
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
+      const data = await response.json();
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Email Sent!',
+          text: 'Password reset instructions have been sent to your email.',
+          confirmButtonColor: '#06b6d4'
+        });
+        setShowForgotPassword(false);
+        setForgotEmail('');
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed',
+          text: data.error || 'Email not found',
+          confirmButtonColor: '#ef4444'
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Something went wrong. Please try again.',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+    setForgotLoading(false);
   };
 
   const handlePartnerClick = () => {
@@ -375,6 +417,17 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
                 </div>
               </div>
 
+              {/* FORGOT PASSWORD */}
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
               {/* SUBMIT */}
               <button
                 type="submit"
@@ -558,6 +611,52 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
           </div>
         )}
       </div>
+    {/* FORGOT PASSWORD MODAL */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6">
+          <div className="bg-slate-900 rounded-3xl p-8 w-full max-w-md border border-white/10 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white text-center mb-2">Reset Password</h2>
+            <p className="text-gray-400 text-center text-sm mb-6">
+              Enter your email and we'll send you instructions to reset your password.
+            </p>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-300">Email Address</label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full py-3 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-xl font-bold text-white hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {forgotLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Sending...
+                  </span>
+                ) : 'Send Reset Link'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowForgotPassword(false); setForgotEmail(''); }}
+                className="w-full py-3 bg-white/10 rounded-xl text-gray-300 hover:bg-white/20 transition-colors"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

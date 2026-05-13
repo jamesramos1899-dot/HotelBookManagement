@@ -129,7 +129,70 @@ router.put('/change-password', protect, async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
+// FORGOT PASSWORD
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const crypto = require('crypto');
+    const { email } = req.body;
+    const user = await User.findOne({ email });
 
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'No account found with that email' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save({ validateBeforeSave: false });
+
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+
+    const sendEmail = require('../utils/sendEmail');
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset Your AI Stay Password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; background: #0f172a; color: #fff; border-radius: 12px;">
+          <h2 style="color: #22d3ee;">AI Stay — Password Reset</h2>
+          <p>Hello ${user.name},</p>
+          <p>You requested a password reset. Click the button below to set a new password:</p>
+          <a href="${resetUrl}" style="display: inline-block; margin: 20px 0; padding: 12px 24px; background: linear-gradient(to right, #06b6d4, #a855f7); color: #fff; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Reset Password
+          </a>
+          <p style="color: #94a3b8; font-size: 12px;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+        </div>
+      `
+    });
+
+    res.json({ success: true, message: 'Reset email sent' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ success: false, error: 'Failed to send email' });
+  }
+});
+
+// RESET PASSWORD
+router.post('/reset-password/:token', async (req, res) => {
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: req.params.token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
+    }
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 // ================= TEST EMAIL ROUTE (TEMPORARY) =================
 router.get('/test-email', async (req, res) => {
   try {
