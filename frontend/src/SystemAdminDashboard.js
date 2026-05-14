@@ -1517,6 +1517,9 @@ const SystemAdminProfileModal = ({
   api,
   showAlert,
 }) => {
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const [form, setForm] = useState({ name: "", phone: "" });
   const [passwordForm, setPasswordForm] = useState({
@@ -1787,9 +1790,7 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showConfirmPw, setShowConfirmPw] = useState(false);
+
 
   const [pendingPartners, setPendingPartners] = useState([]);
 
