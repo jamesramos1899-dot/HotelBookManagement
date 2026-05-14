@@ -193,7 +193,7 @@ const StarRating = ({
   };
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1 w-full">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
@@ -553,22 +553,36 @@ const ReviewModal = ({ isOpen, onClose, hotel, onSubmit }) => {
       <div className="bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-white/10 shadow-2xl">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">Review {hotel.name}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Your Rating</label>
+            <label className="block text-sm text-gray-400 mb-2">
+              Your Rating
+            </label>
             <div className="flex items-center gap-3">
-              <StarRating rating={rating} size="lg" interactive onRate={setRating} />
-              <span className="text-cyan-400 font-bold text-lg">{rating}/5</span>
+              <StarRating
+                rating={rating}
+                size="lg"
+                interactive
+                onRate={setRating}
+              />
+              <span className="text-cyan-400 font-bold text-lg">
+                {rating}/5
+              </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Your Review</label>
+            <label className="block text-sm text-gray-400 mb-2">
+              Your Review
+            </label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -583,19 +597,21 @@ const ReviewModal = ({ isOpen, onClose, hotel, onSubmit }) => {
             <div>
               <p className="text-sm font-medium text-white">Post anonymously</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {isAnonymous ? 'Your name will be hidden' : 'Your real name will be shown'}
+                {isAnonymous
+                  ? "Your name will be hidden"
+                  : "Your real name will be shown"}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setIsAnonymous(!isAnonymous)}
               className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${
-                isAnonymous ? 'bg-cyan-500' : 'bg-gray-600'
+                isAnonymous ? "bg-cyan-500" : "bg-gray-600"
               }`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
-                  isAnonymous ? 'translate-x-6' : 'translate-x-0'
+                  isAnonymous ? "translate-x-6" : "translate-x-0"
                 }`}
               />
             </button>
@@ -655,11 +671,15 @@ const ReviewsDisplayModal = ({ isOpen, onClose, hotel }) => {
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-sm font-bold">
-                      {review.isAnonymous ? "A" : (review.user?.name?.charAt(0) || "U")}
+                      {review.isAnonymous
+                        ? "A"
+                        : review.user?.name?.charAt(0) || "U"}
                     </div>
                     <div>
                       <p className="font-medium text-sm">
-                        {review.isAnonymous ? "Anonymous" : (review.user?.name || "Guest")}
+                        {review.isAnonymous
+                          ? "Anonymous"
+                          : review.user?.name || "Guest"}
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(review.createdAt).toLocaleDateString()}
@@ -734,29 +754,60 @@ const Profile = ({
 
   // Save changes
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [changingPassword, setChangingPassword] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setAlertModal({ isOpen: true, title: 'Error', message: 'New passwords do not match', type: 'error' });
+      setAlertModal({
+        isOpen: true,
+        title: "Error",
+        message: "New passwords do not match",
+        type: "error",
+      });
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      setAlertModal({ isOpen: true, title: 'Error', message: 'Password must be at least 6 characters', type: 'error' });
+      setAlertModal({
+        isOpen: true,
+        title: "Error",
+        message: "Password must be at least 6 characters",
+        type: "error",
+      });
       return;
     }
     try {
       setChangingPassword(true);
-      await api.put('/auth/change-password', {
+      await api.put("/auth/change-password", {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      setAlertModal({ isOpen: true, title: 'Success', message: 'Password changed successfully', type: 'success' });
+      setAlertModal({
+        isOpen: true,
+        title: "Success",
+        message: "Password changed successfully",
+        type: "success",
+      });
       setShowPasswordForm(false);
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
     } catch (err) {
-      setAlertModal({ isOpen: true, title: 'Error', message: err.response?.data?.error || 'Failed to change password', type: 'error' });
+      setAlertModal({
+        isOpen: true,
+        title: "Error",
+        message: err.response?.data?.error || "Failed to change password",
+        type: "error",
+      });
     } finally {
       setChangingPassword(false);
     }
@@ -989,7 +1040,7 @@ const Profile = ({
           </div>
         )}
       </div>
-    {/* Change Password Card */}
+      {/* Change Password Card */}
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 max-w-2xl border border-white/10 mt-4">
         <div className="flex justify-between items-center">
           <div>
@@ -1000,41 +1051,101 @@ const Profile = ({
             onClick={() => setShowPasswordForm(!showPasswordForm)}
             className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
           >
-            {showPasswordForm ? 'Cancel' : 'Change Password'}
+            {showPasswordForm ? "Cancel" : "Change Password"}
           </button>
         </div>
 
         {showPasswordForm && (
           <div className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Current Password</label>
-              <input
-                type="password"
-                value={passwordForm.currentPassword}
-                onChange={(e) => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                placeholder="Enter current password"
-              />
+              <label className="block text-sm text-gray-400 mb-2">
+                Current Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showCurrentPw ? "text" : "password"}
+                  value={passwordForm.currentPassword}
+                  onChange={(e) =>
+                    setPasswordForm((p) => ({
+                      ...p,
+                      currentPassword: e.target.value,
+                    }))
+                  }
+                  className="w-full p-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                  placeholder="Enter current password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPw(!showCurrentPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showCurrentPw ? (
+                    <Eye className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4 opacity-50" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">New Password</label>
-              <input
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(e) => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                placeholder="Min. 6 characters"
-              />
+              <label className="block text-sm text-gray-400 mb-2">
+                New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showNewPw ? "text" : "password"}
+                  value={passwordForm.newPassword}
+                  onChange={(e) =>
+                    setPasswordForm((p) => ({
+                      ...p,
+                      newPassword: e.target.value,
+                    }))
+                  }
+                  className="w-full p-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                  placeholder="Min. 6 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPw(!showNewPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showNewPw ? (
+                    <Eye className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4 opacity-50" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Confirm New Password</label>
-              <input
-                type="password"
-                value={passwordForm.confirmPassword}
-                onChange={(e) => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                placeholder="Repeat new password"
-              />
+              <label className="block text-sm text-gray-400 mb-2">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPw ? "text" : "password"}
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) =>
+                    setPasswordForm((p) => ({
+                      ...p,
+                      confirmPassword: e.target.value,
+                    }))
+                  }
+                  className="w-full p-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                  placeholder="Repeat new password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPw(!showConfirmPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showConfirmPw ? (
+                    <Eye className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4 opacity-50" />
+                  )}
+                </button>
+              </div>
             </div>
             <div className="flex gap-3 pt-2">
               <button
@@ -1045,10 +1156,14 @@ const Profile = ({
               </button>
               <button
                 onClick={handleChangePassword}
-                disabled={changingPassword || !passwordForm.currentPassword || !passwordForm.newPassword}
+                disabled={
+                  changingPassword ||
+                  !passwordForm.currentPassword ||
+                  !passwordForm.newPassword
+                }
                 className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium disabled:opacity-50"
               >
-                {changingPassword ? 'Changing...' : 'Update Password'}
+                {changingPassword ? "Changing..." : "Update Password"}
               </button>
             </div>
           </div>
@@ -1264,7 +1379,8 @@ const HotelCard = ({
                 —{" "}
                 {hotel.reviews[hotel.reviews.length - 1].isAnonymous
                   ? "Anonymous"
-                  : (hotel.reviews[hotel.reviews.length - 1].user?.name || "Guest")}
+                  : hotel.reviews[hotel.reviews.length - 1].user?.name ||
+                    "Guest"}
               </span>
               <button
                 onClick={(e) => {
@@ -1280,28 +1396,31 @@ const HotelCard = ({
         )}
 
         <div className="pt-4 border-t border-white/10">
-  <div className="flex gap-1">
-  <button
-    onClick={(e) => { e.stopPropagation(); setReviewModal({ isOpen: true, hotel }); }}
-    className="px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
-  >
-    <MessageSquare className="w-3 h-3" />
-    Review
-  </button>
-  <button
-    onClick={() => onInquire && onInquire(hotel)}
-    className="px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
-  >
-    <MessageSquare className="w-3 h-3" />
-    Inquire
-  </button>
-  <button
-    onClick={() => onBookNow(hotel)}
-    className="px-3 py-1.5 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white text-xs"
-  >
-    Book Now
-  </button>
-</div>
+          <div className="flex gap-1 w-full">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setReviewModal({ isOpen: true, hotel });
+              }}
+              className="flex-1 justify-center px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
+            >
+              <MessageSquare className="w-3 h-3" />
+              Review
+            </button>
+            <button
+              onClick={() => onInquire && onInquire(hotel)}
+              className="flex-1 justify-center px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
+            >
+              <MessageSquare className="w-3 h-3" />
+              Inquire
+            </button>
+            <button
+              onClick={() => onBookNow(hotel)}
+              className="flex-1 justify-center px-3 py-1.5 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white text-xs"
+            >
+              Book Now
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1482,6 +1601,13 @@ const Dashboard = ({ user, onLogout }) => {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [unreadChats, setUnreadChats] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("unreadChats") || "{}");
+    } catch {
+      return {};
+    }
+  });
 
   const [alertModal, setAlertModal] = useState({
     isOpen: false,
@@ -1505,9 +1631,15 @@ const Dashboard = ({ user, onLogout }) => {
     phone: "",
   });
 
-  const [seenBookings, setSeenBookings] = useState(() => parseInt(localStorage.getItem('seenBookings') || '0'));
-  const [seenFavorites, setSeenFavorites] = useState(() => parseInt(localStorage.getItem('seenFavorites') || '0'));
-  const [seenMessages, setSeenMessages] = useState(() => parseInt(localStorage.getItem('seenMessages') || '0'));
+  const [seenBookings, setSeenBookings] = useState(() =>
+    parseInt(localStorage.getItem("seenBookings") || "0"),
+  );
+  const [seenFavorites, setSeenFavorites] = useState(() =>
+    parseInt(localStorage.getItem("seenFavorites") || "0"),
+  );
+  const [seenMessages, setSeenMessages] = useState(() =>
+    parseInt(localStorage.getItem("seenMessages") || "0"),
+  );
 
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -1519,7 +1651,8 @@ const Dashboard = ({ user, onLogout }) => {
   useEffect(() => {
     const cachedUser = authService.getCurrentUser();
     if (cachedUser) {
-      let avatarUrl = cachedUser.avatar || "";
+      let avatarUrl =
+        cachedUser.avatar || localStorage.getItem("userAvatar") || "";
       if (avatarUrl && !avatarUrl.startsWith("http") && api.defaults.baseURL) {
         let baseUrl = api.defaults.baseURL
           .replace(/\/api\/?$/, "")
@@ -1558,15 +1691,15 @@ const Dashboard = ({ user, onLogout }) => {
 
   // Re-fetch favorites when navigating to favorites tab to ensure sync
   useEffect(() => {
-  if (activeTab === 'favorites') {
-    fetchFavorites();
-  }
-  // Stop polling when leaving chat tab
-  if (activeTab !== 'chat' && chatPollingRef.current) {
-    clearInterval(chatPollingRef.current);
-    chatPollingRef.current = null;
-  }
-}, [activeTab]);
+    if (activeTab === "favorites") {
+      fetchFavorites();
+    }
+    // Stop polling when leaving chat tab
+    if (activeTab !== "chat" && chatPollingRef.current) {
+      clearInterval(chatPollingRef.current);
+      chatPollingRef.current = null;
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (selectedRoom && bookingStep === "dates") {
@@ -1645,6 +1778,11 @@ const Dashboard = ({ user, onLogout }) => {
           };
           localStorage.setItem("user", JSON.stringify(updatedUser));
         }
+
+        // Also store avatar separately so it survives re-login
+        if (avatarUrl) {
+          localStorage.setItem("userAvatar", avatarUrl);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch profile", err);
@@ -1662,28 +1800,59 @@ const Dashboard = ({ user, onLogout }) => {
 
   const chatPollingRef = React.useRef(null);
 
-const openChat = async (hotelId, hotelName) => {
-  setActiveChatHotelId(hotelId);
-  setActiveChatHotelName(hotelName);
-  setActiveTab('chat');
-  try {
-    const res = await getConversation(hotelId);
-    if (res.success) setChatMessages(res.data.messages || []);
-  } catch (err) {
+  const openChat = async (hotelId, hotelName) => {
+    // Clear messages immediately to prevent showing stale convo
     setChatMessages([]);
-  }
+    setActiveChatHotelId(hotelId);
+    setActiveChatHotelName(hotelName);
+    setActiveTab("chat");
 
-  // Clear any existing polling
-  if (chatPollingRef.current) clearInterval(chatPollingRef.current);
+    // Clear unread for this hotel
+    setUnreadChats((prev) => {
+      const updated = { ...prev, [hotelId]: 0 };
+      localStorage.setItem("unreadChats", JSON.stringify(updated));
+      return updated;
+    });
 
-  // Poll every 3 seconds
-  chatPollingRef.current = setInterval(async () => {
     try {
       const res = await getConversation(hotelId);
       if (res.success) setChatMessages(res.data.messages || []);
-    } catch (err) {}
-  }, 3000);
-};
+    } catch (err) {
+      setChatMessages([]);
+    }
+
+    // Clear any existing polling
+    if (chatPollingRef.current) clearInterval(chatPollingRef.current);
+
+    // Poll every 3 seconds
+    chatPollingRef.current = setInterval(async () => {
+      try {
+        const res = await getConversation(hotelId);
+        if (res.success) {
+          const newMessages = res.data.messages || [];
+          setChatMessages((prev) => {
+            // If new messages came in and this hotel is NOT active, mark unread
+            if (newMessages.length > prev.length) {
+              // Check if latest message is from hotel (not user)
+              const latest = newMessages[newMessages.length - 1];
+              if (latest?.senderRole !== "user") {
+                setUnreadChats((u) => {
+                  const updated = {
+                    ...u,
+                    [hotelId]:
+                      (u[hotelId] || 0) + (newMessages.length - prev.length),
+                  };
+                  localStorage.setItem("unreadChats", JSON.stringify(updated));
+                  return updated;
+                });
+              }
+            }
+            return newMessages;
+          });
+        }
+      } catch (err) {}
+    }, 3000);
+  };
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !activeChatHotelId) return;
@@ -2329,112 +2498,263 @@ const openChat = async (hotelId, hotelName) => {
     const newMessages = Math.max(0, conversations.length - seenMessages);
 
     return (
-    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
-      <div
-        className="flex items-center gap-2 mb-8 cursor-pointer"
-        onClick={() => setActiveTab("browse")}
-      >
-        <Diamond className="w-8 h-8 text-cyan-400" />
-        <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-          AI STAY
-        </span>
-      </div>
-      <nav className="space-y-2 flex-1">
-        <SidebarItem
-          icon={Home}
-          label="Browse Hotels"
-          active={activeTab === "browse"}
+      <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
+        <div
+          className="flex items-center gap-2 mb-8 cursor-pointer"
           onClick={() => setActiveTab("browse")}
-        />
-        <SidebarItem
-          icon={BookOpen}
-          label="My Bookings"
-          active={activeTab === "bookings"}
-          onClick={() => { setActiveTab("bookings"); setSeenBookings(myBookings.length); localStorage.setItem('seenBookings', myBookings.length); }}
-          badge={newBookings}
-        />
-        <SidebarItem
-          icon={Heart}
-          label="Favorites"
-          active={activeTab === "favorites"}
-          onClick={() => { setActiveTab("favorites"); setSeenFavorites(favorites.length); fetchFavorites(); localStorage.setItem('seenFavorites', favorites.length); }}
-          badge={newFavorites}
-        />
-        <SidebarItem
-          icon={MessageSquare}
-          label="Messages"
-          active={activeTab === "chat"}
-          onClick={() => { setActiveTab("chat"); fetchConversations(); setSeenMessages(conversations.length); localStorage.setItem('seenMessages', conversations.length); }}
-          badge={newMessages}
-        />
-        <SidebarItem
-          icon={User}
-          label="Profile"
-          active={activeTab === "profile"}
-          onClick={() => setActiveTab("profile")}
-        />
-      </nav>
-      <div className="pt-6 border-t border-white/10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold overflow-hidden ring-2 ring-white/20">
-            {profileData.avatar ? (
-              <img
-                src={profileData.avatar}
-                alt="avatar"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                  e.target.nextSibling.style.display = "flex";
-                }}
-              />
-            ) : null}
-            <span
-              className={`text-white ${profileData.avatar ? "hidden" : "flex"}`}
-            >
-              {(profileData?.name || user?.name)?.charAt(0) || "U"}
+        >
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 680 680"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="340" cy="340" r="320" fill="#1a1f36" />
+            <circle
+              cx="340"
+              cy="340"
+              r="305"
+              fill="none"
+              stroke="#f5c842"
+              strokeWidth="3"
+              strokeDasharray="6 5"
+            />
+            <rect
+              x="310"
+              y="240"
+              width="60"
+              height="115"
+              rx="3"
+              fill="#f5c842"
+            />
+            <polygon points="340,205 300,240 380,240" fill="#f5c842" />
+            <rect
+              x="334"
+              y="198"
+              width="12"
+              height="10"
+              rx="2"
+              fill="#d4a918"
+            />
+            <line
+              x1="340"
+              y1="182"
+              x2="340"
+              y2="200"
+              stroke="#d4a918"
+              strokeWidth="2"
+            />
+            <polygon points="340,182 356,187 340,192" fill="#ffffff" />
+            <rect
+              x="318"
+              y="250"
+              width="10"
+              height="10"
+              rx="1"
+              fill="#1a1f36"
+            />
+            <rect
+              x="335"
+              y="250"
+              width="10"
+              height="10"
+              rx="1"
+              fill="#ffffff"
+              opacity="0.85"
+            />
+            <rect
+              x="352"
+              y="250"
+              width="10"
+              height="10"
+              rx="1"
+              fill="#1a1f36"
+            />
+            <rect
+              x="318"
+              y="266"
+              width="10"
+              height="10"
+              rx="1"
+              fill="#ffffff"
+              opacity="0.85"
+            />
+            <rect
+              x="335"
+              y="266"
+              width="10"
+              height="10"
+              rx="1"
+              fill="#1a1f36"
+            />
+            <rect
+              x="352"
+              y="266"
+              width="10"
+              height="10"
+              rx="1"
+              fill="#ffffff"
+              opacity="0.85"
+            />
+            <rect
+              x="333"
+              y="330"
+              width="14"
+              height="25"
+              rx="2"
+              fill="#1a1f36"
+            />
+            <path
+              d="M185 390 Q262 370 340 380 Q418 370 495 390 L495 440 Q418 420 340 430 Q262 420 185 440 Z"
+              fill="#232a4a"
+            />
+            <line
+              x1="340"
+              y1="380"
+              x2="340"
+              y2="440"
+              stroke="#f5c842"
+              strokeWidth="2"
+            />
+            <circle cx="230" cy="300" r="5" fill="#f5c842" />
+            <circle cx="255" cy="275" r="4" fill="#8ca0cc" />
+            <line
+              x1="234"
+              y1="298"
+              x2="252"
+              y2="278"
+              stroke="#f5c842"
+              strokeWidth="1.5"
+            />
+            <circle cx="450" cy="300" r="5" fill="#f5c842" />
+            <circle cx="425" cy="275" r="4" fill="#8ca0cc" />
+            <line
+              x1="446"
+              y1="298"
+              x2="428"
+              y2="278"
+              stroke="#f5c842"
+              strokeWidth="1.5"
+            />
+          </svg>
+          <span className="text-xl font-bold">
+            <span className="text-yellow-400">AI</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              {" "}
+              Stay
+            </span>
+          </span>
+        </div>
+        <nav className="space-y-2 flex-1">
+          <SidebarItem
+            icon={Home}
+            label="Browse Hotels"
+            active={activeTab === "browse"}
+            onClick={() => setActiveTab("browse")}
+          />
+          <SidebarItem
+            icon={BookOpen}
+            label="My Bookings"
+            active={activeTab === "bookings"}
+            onClick={() => {
+              setActiveTab("bookings");
+              setSeenBookings(myBookings.length);
+              localStorage.setItem("seenBookings", myBookings.length);
+            }}
+            badge={newBookings}
+          />
+          <SidebarItem
+            icon={Heart}
+            label="Favorites"
+            active={activeTab === "favorites"}
+            onClick={() => {
+              setActiveTab("favorites");
+              setSeenFavorites(favorites.length);
+              fetchFavorites();
+              localStorage.setItem("seenFavorites", favorites.length);
+            }}
+            badge={newFavorites}
+          />
+          <SidebarItem
+            icon={MessageSquare}
+            label="Messages"
+            active={activeTab === "chat"}
+            onClick={() => {
+              setActiveTab("chat");
+              fetchConversations();
+              setSeenMessages(conversations.length);
+              localStorage.setItem("seenMessages", conversations.length);
+            }}
+            badge={newMessages}
+          />
+          <SidebarItem
+            icon={User}
+            label="Profile"
+            active={activeTab === "profile"}
+            onClick={() => setActiveTab("profile")}
+          />
+        </nav>
+        <div className="pt-6 border-t border-white/10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center font-bold overflow-hidden ring-2 ring-white/20">
+              {profileData.avatar ? (
+                <img
+                  src={profileData.avatar}
+                  alt="avatar"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
+                  }}
+                />
+              ) : null}
+              <span
+                className={`text-white ${profileData.avatar ? "hidden" : "flex"}`}
+              >
+                {(profileData?.name || user?.name)?.charAt(0) || "U"}
+              </span>
+            </div>
+            <div>
+              <p className="font-medium text-sm">
+                {profileData?.name || user?.name || "User"}
+              </p>
+              <p className="text-xs text-gray-400">
+                {user?.email || "user@example.com"}
+              </p>
+              {profileData.phone && (
+                <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                  <Phone className="w-3 h-3" /> {profileData.phone}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <BookOpen className="w-3 h-3" /> {myBookings.length}
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              <Heart className="w-3 h-3" /> {favorites.length}
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              <MessageSquare className="w-3 h-3" />{" "}
+              {hotels.reduce((acc, hotel) => {
+                const userReviews =
+                  hotel.reviews?.filter((r) => r.user?._id === user?._id)
+                    .length || 0;
+                return acc + userReviews;
+              }, 0)}
             </span>
           </div>
-          <div>
-            <p className="font-medium text-sm">
-              {profileData?.name || user?.name || "User"}
-            </p>
-            <p className="text-xs text-gray-400">
-              {user?.email || "user@example.com"}
-            </p>
-            {profileData.phone && (
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                <Phone className="w-3 h-3" /> {profileData.phone}
-              </p>
-            )}
-          </div>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm"
+          >
+            <LogOut className="w-4 h-4" /> Sign Out
+          </button>
         </div>
-        <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <BookOpen className="w-3 h-3" /> {myBookings.length}
-          </span>
-          <span>•</span>
-          <span className="flex items-center gap-1">
-            <Heart className="w-3 h-3" /> {favorites.length}
-          </span>
-          <span>•</span>
-          <span className="flex items-center gap-1">
-            <MessageSquare className="w-3 h-3" />{" "}
-            {hotels.reduce((acc, hotel) => {
-              const userReviews =
-                hotel.reviews?.filter((r) => r.user?._id === user?._id)
-                  .length || 0;
-              return acc + userReviews;
-            }, 0)}
-          </span>
-        </div>
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm"
-        >
-          <LogOut className="w-4 h-4" /> Sign Out
-        </button>
       </div>
-    </div>
     );
   };
 
@@ -2784,26 +3104,37 @@ const openChat = async (hotelId, hotelName) => {
           });
 
           // Update booked dates in hotels state immediately
-setHotels(prev => prev.map(h => {
-  if (h.id !== selectedHotel.id) return h;
-  const roomType = selectedRoom.type || 'Room';
-  const newDates = [];
-  const start = new Date(modalCheckIn);
-  const end = new Date(modalCheckOut);
-  const cur = new Date(start);
-  while (cur <= end) {
-    const y = cur.getFullYear();
-    const m = String(cur.getMonth() + 1).padStart(2, '0');
-    const d = String(cur.getDate()).padStart(2, '0');
-    newDates.push(`${y}-${m}-${d}`);
-    cur.setDate(cur.getDate() + 1);
-  }
-  const updatedByRoomType = { ...h.bookedDatesByRoomType };
-  updatedByRoomType[roomType] = [...new Set([...(updatedByRoomType[roomType] || []), ...newDates])].sort();
-  return { ...h, bookedDates: [...new Set([...h.bookedDates, ...newDates])], bookedDatesByRoomType: updatedByRoomType };
-}));
+          setHotels((prev) =>
+            prev.map((h) => {
+              if (h.id !== selectedHotel.id) return h;
+              const roomType = selectedRoom.type || "Room";
+              const newDates = [];
+              const start = new Date(modalCheckIn);
+              const end = new Date(modalCheckOut);
+              const cur = new Date(start);
+              while (cur <= end) {
+                const y = cur.getFullYear();
+                const m = String(cur.getMonth() + 1).padStart(2, "0");
+                const d = String(cur.getDate()).padStart(2, "0");
+                newDates.push(`${y}-${m}-${d}`);
+                cur.setDate(cur.getDate() + 1);
+              }
+              const updatedByRoomType = { ...h.bookedDatesByRoomType };
+              updatedByRoomType[roomType] = [
+                ...new Set([
+                  ...(updatedByRoomType[roomType] || []),
+                  ...newDates,
+                ]),
+              ].sort();
+              return {
+                ...h,
+                bookedDates: [...new Set([...h.bookedDates, ...newDates])],
+                bookedDatesByRoomType: updatedByRoomType,
+              };
+            }),
+          );
 
-setShowReceipt(true);
+          setShowReceipt(true);
         }
       } catch (err) {
         console.error(
@@ -3156,7 +3487,14 @@ setShowReceipt(true);
                     onClick={() => openChat(conv.hotelId, conv.hotelName)}
                     className={`w-full text-left p-3 rounded-xl transition-all ${activeChatHotelId === conv.hotelId ? "bg-cyan-500/20 border border-cyan-500/30" : "bg-white/5 hover:bg-white/10"}`}
                   >
-                    <p className="font-medium text-sm">{conv.hotelName}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-sm">{conv.hotelName}</p>
+                      {unreadChats[conv.hotelId] > 0 && (
+                        <span className="bg-cyan-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
+                          {unreadChats[conv.hotelId]}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 truncate">
                       {conv.lastMessage || "No messages yet"}
                     </p>
