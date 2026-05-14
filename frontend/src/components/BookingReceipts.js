@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Check, Calendar, Users, Bed, MapPin, CreditCard, Download, Home, Printer, FileText } from 'lucide-react';
+import { Check, Calendar, Users, Bed, MapPin, CreditCard, Home, Printer, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -60,20 +60,7 @@ const BookingReceipt = ({ booking, onClose, onDownload }) => {
       pdf.save(`AI-Stay-Receipt-${bookingRef}.pdf`);
     } catch (err) {
       console.error('PDF generation failed:', err);
-      // Fallback to JSON download
-      handleDownloadJSON();
     }
-  };
-
-  const handleDownloadJSON = () => {
-    const dataStr = JSON.stringify(booking, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `booking-receipt-${bookingRef}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -83,20 +70,20 @@ const BookingReceipt = ({ booking, onClose, onDownload }) => {
       <div ref={receiptRef} className="bg-slate-900 rounded-3xl max-w-lg w-full border border-white/10 shadow-2xl overflow-hidden">
 
         {/* Success Header */}
-        <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 p-8 text-center border-b border-white/10">
-          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="w-10 h-10 text-green-400" />
+        <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 p-5 text-center border-b border-white/10">
+          <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Check className="w-7 h-7 text-green-400" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-2">Booking Confirmed!</h2>
-          <p className="text-gray-400">Your reservation is complete</p>
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-green-500/20 rounded-full">
+          <h2 className="text-2xl font-bold text-white mb-1">Booking Confirmed!</h2>
+          <p className="text-gray-400 text-sm">Your reservation is complete</p>
+          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/20 rounded-full">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-green-400 text-sm font-medium">Payment Received</span>
+            <span className="text-green-400 text-xs font-medium">Payment Received</span>
           </div>
         </div>
 
         {/* Receipt Content */}
-        <div className="p-8 space-y-6">
+        <div className="p-5 space-y-4">
 
           {/* Hotel Info */}
           <div className="flex items-start gap-4">
@@ -219,41 +206,29 @@ const BookingReceipt = ({ booking, onClose, onDownload }) => {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="p-6 border-t border-white/10 bg-white/5">
-          <div className="grid grid-cols-4 gap-3">
-            <button 
-              onClick={handlePrint}
-              className="flex items-center justify-center gap-2 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors text-sm font-medium"
-            >
-              <Printer className="w-4 h-4" />
-              Print
-            </button>
-
-            <button 
-              onClick={handleDownloadPDF}
-              className="flex items-center justify-center gap-2 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors text-sm font-medium"
-            >
-              <FileText className="w-4 h-4" />
-              PDF
-            </button>
-
-            <button 
-              onClick={handleDownloadJSON}
-              className="flex items-center justify-center gap-2 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors text-sm font-medium"
-            >
-              <Download className="w-4 h-4" />
-              JSON
-            </button>
-
-            <button 
-              onClick={onClose}
-              className="flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl hover:shadow-lg transition-all text-sm font-medium"
-            >
-              <Home className="w-4 h-4" />
-              Done
-            </button>
-          </div>
+ {/* Actions — outside ref so they don't appear in PDF */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center gap-2 py-3 bg-slate-800 border border-white/10 rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
+          >
+            <Printer className="w-4 h-4" />
+            Print
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center justify-center gap-2 py-3 bg-slate-800 border border-white/10 rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
+          >
+            <FileText className="w-4 h-4" />
+            PDF
+          </button>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl hover:shadow-lg transition-all text-sm font-medium"
+          >
+            <Home className="w-4 h-4" />
+            Done
+          </button>
         </div>
       </div>
     </div>

@@ -533,16 +533,18 @@ const ReviewModal = ({ isOpen, onClose, hotel, onSubmit }) => {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   if (!isOpen || !hotel) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    await onSubmit(hotel.id, { rating, comment });
+    await onSubmit(hotel.id, { rating, comment, isAnonymous });
     setSubmitting(false);
     setRating(5);
     setComment("");
+    setIsAnonymous(false);
     onClose();
   };
 
@@ -551,36 +553,22 @@ const ReviewModal = ({ isOpen, onClose, hotel, onSubmit }) => {
       <div className="bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-white/10 shadow-2xl">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold">Review {hotel.name}</h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              Your Rating
-            </label>
+            <label className="block text-sm text-gray-400 mb-2">Your Rating</label>
             <div className="flex items-center gap-3">
-              <StarRating
-                rating={rating}
-                size="lg"
-                interactive
-                onRate={setRating}
-              />
-              <span className="text-cyan-400 font-bold text-lg">
-                {rating}/5
-              </span>
+              <StarRating rating={rating} size="lg" interactive onRate={setRating} />
+              <span className="text-cyan-400 font-bold text-lg">{rating}/5</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              Your Review
-            </label>
+            <label className="block text-sm text-gray-400 mb-2">Your Review</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -588,6 +576,29 @@ const ReviewModal = ({ isOpen, onClose, hotel, onSubmit }) => {
               className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none min-h-[100px]"
               required
             />
+          </div>
+
+          {/* Anonymous Toggle */}
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+            <div>
+              <p className="text-sm font-medium text-white">Post anonymously</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {isAnonymous ? 'Your name will be hidden' : 'Your real name will be shown'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAnonymous(!isAnonymous)}
+              className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${
+                isAnonymous ? 'bg-cyan-500' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                  isAnonymous ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -644,11 +655,11 @@ const ReviewsDisplayModal = ({ isOpen, onClose, hotel }) => {
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-sm font-bold">
-                      {review.user?.name?.charAt(0) || "U"}
+                      {review.isAnonymous ? "A" : (review.user?.name?.charAt(0) || "U")}
                     </div>
                     <div>
                       <p className="font-medium text-sm">
-                        {review.user?.name || "Anonymous"}
+                        {review.isAnonymous ? "Anonymous" : (review.user?.name || "Guest")}
                       </p>
                       <p className="text-xs text-gray-500">
                         {new Date(review.createdAt).toLocaleDateString()}
@@ -722,6 +733,35 @@ const Profile = ({
   );
 
   // Save changes
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setAlertModal({ isOpen: true, title: 'Error', message: 'New passwords do not match', type: 'error' });
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setAlertModal({ isOpen: true, title: 'Error', message: 'Password must be at least 6 characters', type: 'error' });
+      return;
+    }
+    try {
+      setChangingPassword(true);
+      await api.put('/auth/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setAlertModal({ isOpen: true, title: 'Success', message: 'Password changed successfully', type: 'success' });
+      setShowPasswordForm(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setAlertModal({ isOpen: true, title: 'Error', message: err.response?.data?.error || 'Failed to change password', type: 'error' });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const handleSaveChanges = async () => {
     try {
       setLoading(true);
@@ -949,6 +989,71 @@ const Profile = ({
           </div>
         )}
       </div>
+    {/* Change Password Card */}
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 max-w-2xl border border-white/10 mt-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="font-bold">Password & Security</h3>
+            <p className="text-sm text-gray-400 mt-0.5">Update your password</p>
+          </div>
+          <button
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
+          >
+            {showPasswordForm ? 'Cancel' : 'Change Password'}
+          </button>
+        </div>
+
+        {showPasswordForm && (
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Current Password</label>
+              <input
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                placeholder="Enter current password"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">New Password</label>
+              <input
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                placeholder="Min. 6 characters"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Confirm New Password</label>
+              <input
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                placeholder="Repeat new password"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowPasswordForm(false)}
+                className="flex-1 py-3 bg-white/10 rounded-xl font-medium hover:bg-white/20"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={changingPassword || !passwordForm.currentPassword || !passwordForm.newPassword}
+                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-medium disabled:opacity-50"
+              >
+                {changingPassword ? 'Changing...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -1157,7 +1262,9 @@ const HotelCard = ({
             <div className="flex items-center justify-between mt-1">
               <span className="text-xs text-gray-500">
                 —{" "}
-                {hotel.reviews[hotel.reviews.length - 1].user?.name || "Guest"}
+                {hotel.reviews[hotel.reviews.length - 1].isAnonymous
+                  ? "Anonymous"
+                  : (hotel.reviews[hotel.reviews.length - 1].user?.name || "Guest")}
               </span>
               <button
                 onClick={(e) => {
@@ -1180,32 +1287,28 @@ const HotelCard = ({
             <span className="text-gray-500 text-sm">/night</span>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setReviewModal({ isOpen: true, hotel });
-              }}
-              className="px-3 py-2 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Review
-            </button>
-
-            <button
-              onClick={() => onInquire && onInquire(hotel)}
-              className="px-3 py-2 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-sm"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Inquire
-            </button>
-            <button
-              onClick={() => onBookNow(hotel)}
-              className="px-4 py-2 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white"
-            >
-              Book Now
-            </button>
-          </div>
+          <div className="flex gap-1 flex-wrap">
+  <button
+    onClick={(e) => { e.stopPropagation(); setReviewModal({ isOpen: true, hotel }); }}
+    className="px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
+  >
+    <MessageSquare className="w-3 h-3" />
+    Review
+  </button>
+  <button
+    onClick={() => onInquire && onInquire(hotel)}
+    className="px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
+  >
+    <MessageSquare className="w-3 h-3" />
+    Inquire
+  </button>
+  <button
+    onClick={() => onBookNow(hotel)}
+    className="px-3 py-1.5 rounded-lg font-medium transition-all duration-300 bg-gradient-to-r from-cyan-500 to-purple-500 hover:shadow-lg hover:shadow-cyan-500/25 text-white text-xs"
+  >
+    Book Now
+  </button>
+</div>
         </div>
       </div>
     </div>
@@ -1408,6 +1511,10 @@ const Dashboard = ({ user, onLogout }) => {
     name: "",
     phone: "",
   });
+
+  const [seenBookings, setSeenBookings] = useState(0);
+  const [seenFavorites, setSeenFavorites] = useState(0);
+  const [seenMessages, setSeenMessages] = useState(0);
 
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -2223,7 +2330,12 @@ const openChat = async (hotelId, hotelName) => {
     .toISOString()
     .split("T")[0];
 
-  const Sidebar = () => (
+  const Sidebar = () => {
+    const newBookings = Math.max(0, myBookings.length - seenBookings);
+    const newFavorites = Math.max(0, favorites.length - seenFavorites);
+    const newMessages = Math.max(0, conversations.length - seenMessages);
+
+    return (
     <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-full">
       <div
         className="flex items-center gap-2 mb-8 cursor-pointer"
@@ -2245,31 +2357,28 @@ const openChat = async (hotelId, hotelName) => {
           icon={BookOpen}
           label="My Bookings"
           active={activeTab === "bookings"}
-          onClick={() => setActiveTab("bookings")}
-          badge={myBookings.length}
+          onClick={() => { setActiveTab("bookings"); setSeenBookings(myBookings.length); }}
+          badge={newBookings}
         />
         <SidebarItem
           icon={Heart}
           label="Favorites"
           active={activeTab === "favorites"}
-          onClick={() => setActiveTab("favorites")}
-          badge={favorites.length}
+          onClick={() => { setActiveTab("favorites"); setSeenFavorites(favorites.length); fetchFavorites(); }}
+          badge={newFavorites}
+        />
+        <SidebarItem
+          icon={MessageSquare}
+          label="Messages"
+          active={activeTab === "chat"}
+          onClick={() => { setActiveTab("chat"); fetchConversations(); setSeenMessages(conversations.length); }}
+          badge={newMessages}
         />
         <SidebarItem
           icon={User}
           label="Profile"
           active={activeTab === "profile"}
           onClick={() => setActiveTab("profile")}
-        />
-        <SidebarItem
-          icon={MessageSquare}
-          label="Messages"
-          active={activeTab === "chat"}
-          onClick={() => {
-            setActiveTab("chat");
-            fetchConversations();
-          }}
-          badge={conversations.length}
         />
       </nav>
       <div className="pt-6 border-t border-white/10">
@@ -2333,7 +2442,8 @@ const openChat = async (hotelId, hotelName) => {
         </button>
       </div>
     </div>
-  );
+    );
+  };
 
   const SidebarItem = ({ icon: Icon, label, active, onClick, badge }) => (
     <button
@@ -2970,12 +3080,14 @@ const openChat = async (hotelId, hotelName) => {
               {activeTab === "bookings" && "My Bookings"}
               {activeTab === "favorites" && "My Favorites"}
               {activeTab === "profile" && "My Profile"}
+              {activeTab === "chat" && "Messages"}
             </h1>
             <p className="text-gray-400 text-sm mt-1">
               {activeTab === "browse" && "Find your perfect stay"}
               {activeTab === "bookings" && "Manage your reservations"}
               {activeTab === "favorites" && "Your saved hotels"}
               {activeTab === "profile" && "Manage your account"}
+              {activeTab === "chat" && "Chat with hotels"}
             </p>
           </div>
 

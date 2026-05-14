@@ -119,7 +119,7 @@ exports.deleteHotel = async (req, res) => {
 // ================= ADD REVIEW =================
 exports.addReview = async (req, res) => {
   try {
-    const { rating, comment } = req.body;
+    const { rating, comment, isAnonymous } = req.body;
 
     const hotel = await Hotel.findById(req.params.id);
 
@@ -144,7 +144,8 @@ exports.addReview = async (req, res) => {
     hotel.reviews.push({
       user: req.user.id,
       rating,
-      comment
+      comment,
+      isAnonymous: isAnonymous || false
     });
 
     const total = hotel.reviews.reduce(
