@@ -1279,15 +1279,8 @@ const HotelCard = ({
           </div>
         )}
 
-        <div className="flex justify-between items-center pt-4 border-t border-white/10">
-          <div>
-            <span className="text-2xl font-bold text-cyan-400">
-              ₱{hotel.price}
-            </span>
-            <span className="text-gray-500 text-sm">/night</span>
-          </div>
-
-          <div className="flex gap-1 flex-wrap">
+        <div className="pt-4 border-t border-white/10">
+  <div className="flex gap-1">
   <button
     onClick={(e) => { e.stopPropagation(); setReviewModal({ isOpen: true, hotel }); }}
     className="px-2 py-1.5 bg-white/10 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1 text-xs"
@@ -1512,9 +1505,9 @@ const Dashboard = ({ user, onLogout }) => {
     phone: "",
   });
 
-  const [seenBookings, setSeenBookings] = useState(0);
-  const [seenFavorites, setSeenFavorites] = useState(0);
-  const [seenMessages, setSeenMessages] = useState(0);
+  const [seenBookings, setSeenBookings] = useState(() => parseInt(localStorage.getItem('seenBookings') || '0'));
+  const [seenFavorites, setSeenFavorites] = useState(() => parseInt(localStorage.getItem('seenFavorites') || '0'));
+  const [seenMessages, setSeenMessages] = useState(() => parseInt(localStorage.getItem('seenMessages') || '0'));
 
   const [hotels, setHotels] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -2357,21 +2350,21 @@ const openChat = async (hotelId, hotelName) => {
           icon={BookOpen}
           label="My Bookings"
           active={activeTab === "bookings"}
-          onClick={() => { setActiveTab("bookings"); setSeenBookings(myBookings.length); }}
+          onClick={() => { setActiveTab("bookings"); setSeenBookings(myBookings.length); localStorage.setItem('seenBookings', myBookings.length); }}
           badge={newBookings}
         />
         <SidebarItem
           icon={Heart}
           label="Favorites"
           active={activeTab === "favorites"}
-          onClick={() => { setActiveTab("favorites"); setSeenFavorites(favorites.length); fetchFavorites(); }}
+          onClick={() => { setActiveTab("favorites"); setSeenFavorites(favorites.length); fetchFavorites(); localStorage.setItem('seenFavorites', favorites.length); }}
           badge={newFavorites}
         />
         <SidebarItem
           icon={MessageSquare}
           label="Messages"
           active={activeTab === "chat"}
-          onClick={() => { setActiveTab("chat"); fetchConversations(); setSeenMessages(conversations.length); }}
+          onClick={() => { setActiveTab("chat"); fetchConversations(); setSeenMessages(conversations.length); localStorage.setItem('seenMessages', conversations.length); }}
           badge={newMessages}
         />
         <SidebarItem
@@ -2790,7 +2783,27 @@ const openChat = async (hotelId, hotelName) => {
             paymentIntentId: paymentIntent.id,
           });
 
-          setShowReceipt(true);
+          // Update booked dates in hotels state immediately
+setHotels(prev => prev.map(h => {
+  if (h.id !== selectedHotel.id) return h;
+  const roomType = selectedRoom.type || 'Room';
+  const newDates = [];
+  const start = new Date(modalCheckIn);
+  const end = new Date(modalCheckOut);
+  const cur = new Date(start);
+  while (cur <= end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    newDates.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  const updatedByRoomType = { ...h.bookedDatesByRoomType };
+  updatedByRoomType[roomType] = [...new Set([...(updatedByRoomType[roomType] || []), ...newDates])].sort();
+  return { ...h, bookedDates: [...new Set([...h.bookedDates, ...newDates])], bookedDatesByRoomType: updatedByRoomType };
+}));
+
+setShowReceipt(true);
         }
       } catch (err) {
         console.error(
