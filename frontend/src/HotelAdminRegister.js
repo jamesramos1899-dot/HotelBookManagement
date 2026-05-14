@@ -1,6 +1,15 @@
 import React, { useState } from "react";
 import Swal from "sweetalert2";
-import { User, Mail, Phone, MapPin } from "lucide-react";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building2,
+  FileText,
+  Hash,
+  Upload,
+} from "lucide-react";
 import api from "./services/api";
 
 const HotelAdminRegister = ({ onSuccess, onBack }) => {
@@ -11,20 +20,43 @@ const HotelAdminRegister = ({ onSuccess, onBack }) => {
     email: "",
     phone: "",
     address: "",
+    hotelName: "",
+    propertyLocation: "",
+    businessLicense: "",
+    taxInformation: "",
+    numberOfUnits: "",
   });
+  const [validIdFile, setValidIdFile] = useState(null);
+  const [validIdPreview, setValidIdPreview] = useState(null);
+
+  const handleValidIdChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setValidIdFile(file);
+    setValidIdPreview(URL.createObjectURL(file));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await api.post("/auth/register", {
-        name: form.name,
-        email: form.email,
-        password: Math.random().toString(36).slice(-10), // Auto-generate temporary password
-        phone: form.phone,
-        address: form.address,
-        role: "hotel_admin",
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("email", form.email);
+      formData.append("password", Math.random().toString(36).slice(-10));
+      formData.append("phone", form.phone);
+      formData.append("address", form.address);
+      formData.append("hotelName", form.hotelName);
+      formData.append("propertyLocation", form.propertyLocation);
+      formData.append("businessLicense", form.businessLicense);
+      formData.append("taxInformation", form.taxInformation);
+      formData.append("numberOfUnits", form.numberOfUnits);
+      formData.append("role", "hotel_admin");
+      if (validIdFile) formData.append("validId", validIdFile);
+
+      const response = await api.post("/auth/register", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       if (response.data.success) {
@@ -266,6 +298,128 @@ const HotelAdminRegister = ({ onSuccess, onBack }) => {
                   onChange={(e) => updateForm("address", e.target.value)}
                   required
                 />
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-4">
+              <p className="text-xs text-cyan-400 uppercase tracking-wider mb-3 font-semibold">
+                Hotel / Property Information
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300">Hotel Name *</label>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  placeholder="Enter your hotel name"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                  onChange={(e) => updateForm("hotelName", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300">
+                Property Location *
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  placeholder="Full property address"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                  onChange={(e) =>
+                    updateForm("propertyLocation", e.target.value)
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300">
+                Business License Number *
+              </label>
+              <div className="relative">
+                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  placeholder="e.g. BL-2024-XXXXX"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                  onChange={(e) =>
+                    updateForm("businessLicense", e.target.value)
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300">
+                Tax Identification Number (TIN) *
+              </label>
+              <div className="relative">
+                <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  placeholder="e.g. 123-456-789"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                  onChange={(e) => updateForm("taxInformation", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300">
+                Number of Units / Rooms *
+              </label>
+              <div className="relative">
+                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 20"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                  onChange={(e) => updateForm("numberOfUnits", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300">Valid ID Upload *</label>
+              <div className="mt-1">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-cyan-500/50 hover:bg-white/5 transition-all">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg,application/pdf"
+                    className="hidden"
+                    onChange={handleValidIdChange}
+                    required={!validIdFile}
+                  />
+                  {validIdPreview ? (
+                    <img
+                      src={validIdPreview}
+                      alt="ID Preview"
+                      className="h-full w-full object-contain rounded-xl p-1"
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">
+                        Click to upload valid ID
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        PNG, JPG, PDF up to 5MB
+                      </p>
+                    </div>
+                  )}
+                </label>
+                {validIdFile && (
+                  <p className="text-xs text-cyan-400 mt-1">
+                    ✓ {validIdFile.name}
+                  </p>
+                )}
               </div>
             </div>
 

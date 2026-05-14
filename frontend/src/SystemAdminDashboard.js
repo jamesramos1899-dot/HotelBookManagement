@@ -26,6 +26,8 @@ import {
   Users,
   Shield,
   Crown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { getHotels, deleteHotel } from "./services/hotelService";
 import { getAllRooms } from "./services/roomService";
@@ -1012,10 +1014,38 @@ const PartnersView = ({
                         <Phone className="w-4 h-4" /> {partner.phone}
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
-                      <Building2 className="w-4 h-4" />{" "}
-                      {partner.hotelName || "N/A"}
-                    </span>
+                    {partner.hotelName && (
+                      <span className="flex items-center gap-1">
+                        <Building2 className="w-4 h-4" /> {partner.hotelName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-2">
+                    {partner.propertyLocation && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />{" "}
+                        {partner.propertyLocation}
+                      </span>
+                    )}
+                    {partner.businessLicense && (
+                      <span>📋 License: {partner.businessLicense}</span>
+                    )}
+                    {partner.taxInformation && (
+                      <span>🧾 TIN: {partner.taxInformation}</span>
+                    )}
+                    {partner.numberOfUnits && (
+                      <span>🏨 Units: {partner.numberOfUnits}</span>
+                    )}
+                    {partner.validId && (
+                      <a
+                        href={partner.validId}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300"
+                      >
+                        <Eye className="w-3 h-3" /> View Valid ID
+                      </a>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Applied: {new Date(partner.appliedAt).toLocaleDateString()}
@@ -1650,55 +1680,94 @@ const SystemAdminProfileModal = ({
               <label className="block text-sm text-gray-400 mb-2">
                 Current Password
               </label>
-              <input
-                type="password"
-                value={passwordForm.currentPassword}
-                onChange={(e) =>
-                  setPasswordForm({
-                    ...passwordForm,
-                    currentPassword: e.target.value,
-                  })
-                }
-                placeholder="Enter current password"
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showCurrentPw ? "text" : "password"}
+                  value={passwordForm.currentPassword}
+                  onChange={(e) =>
+                    setPasswordForm({
+                      ...passwordForm,
+                      currentPassword: e.target.value,
+                    })
+                  }
+                  placeholder="Enter current password"
+                  className="w-full p-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPw(!showCurrentPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showCurrentPw ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-2">
                 New Password
               </label>
-              <input
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(e) =>
-                  setPasswordForm({
-                    ...passwordForm,
-                    newPassword: e.target.value,
-                  })
-                }
-                placeholder="Enter new password"
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showNewPw ? "text" : "password"}
+                  value={passwordForm.newPassword}
+                  onChange={(e) =>
+                    setPasswordForm({
+                      ...passwordForm,
+                      newPassword: e.target.value,
+                    })
+                  }
+                  placeholder="Enter new password"
+                  className="w-full p-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPw(!showNewPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showNewPw ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-2">
                 Confirm New Password
               </label>
-              <input
-                type="password"
-                value={passwordForm.confirmPassword}
-                onChange={(e) =>
-                  setPasswordForm({
-                    ...passwordForm,
-                    confirmPassword: e.target.value,
-                  })
-                }
-                placeholder="Confirm new password"
-                className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPw ? "text" : "password"}
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) =>
+                    setPasswordForm({
+                      ...passwordForm,
+                      confirmPassword: e.target.value,
+                    })
+                  }
+                  placeholder="Confirm new password"
+                  className="w-full p-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPw(!showConfirmPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showConfirmPw ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -1719,6 +1788,9 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   const [pendingPartners, setPendingPartners] = useState([]);
 
@@ -1751,6 +1823,11 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
           hotelAddress: user.hotelAddress,
           hotelCity: user.hotelCity,
           hotelCountry: user.hotelCountry,
+          propertyLocation: user.propertyLocation,
+          businessLicense: user.businessLicense,
+          taxInformation: user.taxInformation,
+          numberOfUnits: user.numberOfUnits,
+          validId: user.validId,
           appliedAt: user.createdAt,
         }));
         setPendingPartners(mapped);
@@ -1806,10 +1883,15 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
     fetchAllUsers();
   }, [activeTab]);
   useEffect(() => {
-    fetchCurrentUser();
+    // Restore avatar immediately from cache before API call
+    const cachedAvatar = localStorage.getItem("systemAdminAvatar");
     const stored = JSON.parse(localStorage.getItem("user") || "{}");
-    if (stored.avatar)
+    if (cachedAvatar) {
+      setCurrentUser((prev) => ({ ...prev, ...stored, avatar: cachedAvatar }));
+    } else if (stored.avatar) {
       setCurrentUser((prev) => ({ ...prev, avatar: stored.avatar }));
+    }
+    fetchCurrentUser();
   }, []);
 
   // Real-time polling for pending partners, users, and reviews
@@ -1832,12 +1914,21 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
           baseUrl = baseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
           avatarUrl = baseUrl + "/" + avatarUrl.replace(/^\//, "");
         }
+        // Cache bust to always show latest
+        if (avatarUrl) avatarUrl = avatarUrl.split("?")[0] + "?t=" + Date.now();
         const updated = { ...userData, avatar: avatarUrl };
         setCurrentUser(updated);
         localStorage.setItem("user", JSON.stringify(updated));
+        // Persist avatar separately so it survives logout/login
+        if (avatarUrl) localStorage.setItem("systemAdminAvatar", avatarUrl);
       }
     } catch (err) {
       console.error("Failed to fetch current user", err);
+      // On error, restore avatar from localStorage
+      const stored = JSON.parse(localStorage.getItem("user") || "{}");
+      const cachedAvatar = localStorage.getItem("systemAdminAvatar");
+      if (cachedAvatar)
+        setCurrentUser((prev) => ({ ...prev, avatar: cachedAvatar }));
     }
   };
 
