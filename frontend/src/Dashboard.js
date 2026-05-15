@@ -1274,9 +1274,7 @@ const HotelCard = ({
             <span>Max {hotel.maxGuests}</span>
           </div>
         </div>
-        <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-          {hotel.description}
-        </p>
+        <p className="text-gray-400 text-sm mb-4">{hotel.description}</p>
         <div className="flex flex-wrap gap-2 mb-4">
           {hotel.amenities.map((amenity, idx) => (
             <span
@@ -3203,7 +3201,8 @@ const Dashboard = ({ user, onLogout }) => {
                 <div className="flex-1">
                   <h4 className="font-bold text-lg">{selectedHotel.name}</h4>
                   <p className="text-gray-400 text-sm flex items-center gap-1">
-                    <MapPin className="w-4 h-4" /> {selectedHotel.location}
+                    <MapPin className="w-4 h-4" /> {selectedHotel.location} •{" "}
+                    {selectedHotel.address || ""}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <StarRating

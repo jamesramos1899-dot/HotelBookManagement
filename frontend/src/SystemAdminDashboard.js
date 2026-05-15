@@ -784,13 +784,14 @@ const DashboardView = ({ stats, hotels, allReviews }) => (
                 </p>
               </div>
               <div className="text-right">
-                <div className="flex items-center gap-1 text-yellow-400 font-bold text-lg">
+                <div className="flex items-center gap-2 text-yellow-400 font-bold text-lg">
                   <Star className="w-5 h-5 fill-yellow-400" />
                   {hotel.averageRating || hotel.starRating || 0}
+                  <span className="text-gray-400 text-sm">•</span>
+                  <span className="text-gray-400 text-sm font-normal">
+                    {hotel.reviewCount || 0} guests
+                  </span>
                 </div>
-                <p className="text-gray-400 text-sm">
-                  {hotel.reviewCount || 0} reviews
-                </p>
               </div>
             </div>
           ))}
