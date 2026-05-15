@@ -15,7 +15,8 @@ import authService from "./services/authService";
 const Login = ({ onLogin, onBack, onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] =
+    useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -481,80 +482,18 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="text-sm text-gray-300">Email</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="email"
-                      placeholder="Enter your Gmail address"
-                      className={`w-full pl-12 pr-4 py-3 bg-slate-900/50 border rounded-xl text-white placeholder-gray-500 focus:outline-none ${
-                        otpVerified
-                          ? "border-green-500/50"
-                          : "border-white/10 focus:border-cyan-500/50"
-                      }`}
-                      value={registerForm.email}
-                      onChange={(e) => {
-                        setRegisterForm({
-                          ...registerForm,
-                          email: e.target.value,
-                        });
-                        setOtpSent(false);
-                        setOtpVerified(false);
-                        setOtpCode("");
-                      }}
-                      disabled={otpVerified}
-                      pattern="^[a-zA-Z0-9._%+\-]+@gmail\.com$"
-                      required
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpLoading || otpVerified || otpTimer > 0}
-                    className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-cyan-400 text-xs font-semibold hover:bg-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    {otpVerified
-                      ? "✓ Verified"
-                      : otpTimer > 0
-                        ? `${Math.floor(otpTimer / 60)}:${String(otpTimer % 60).padStart(2, "0")}`
-                        : otpLoading
-                          ? "Sending..."
-                          : "Send OTP"}
-                  </button>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
+                    onChange={(e) =>
+                      setForm({ ...form, email: e.target.value })
+                    }
+                    required
+                  />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Must be a @gmail.com address
-                </p>
-
-                {/* OTP Input - shows after OTP is sent */}
-                {otpSent && !otpVerified && (
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      type="text"
-                      maxLength={6}
-                      placeholder="Enter 6-digit code"
-                      className="flex-1 px-4 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none tracking-widest text-center text-lg"
-                      value={otpCode}
-                      onChange={(e) =>
-                        setOtpCode(e.target.value.replace(/\D/, ""))
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={handleVerifyOtp}
-                      disabled={otpCode.length !== 6 || otpLoading}
-                      className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-xl text-purple-400 text-xs font-semibold hover:bg-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {otpLoading ? "Verifying..." : "Verify"}
-                    </button>
-                  </div>
-                )}
-
-                {otpVerified && (
-                  <p className="text-xs text-green-400 mt-1">
-                    ✓ Gmail verified successfully
-                  </p>
-                )}
               </div>
 
               {/* PASSWORD */}
@@ -666,22 +605,79 @@ const Login = ({ onLogin, onBack, onNavigate }) => {
               {/* EMAIL */}
               <div>
                 <label className="text-sm text-gray-300">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
-                    value={registerForm.email}
-                    onChange={(e) =>
-                      setRegisterForm({
-                        ...registerForm,
-                        email: e.target.value,
-                      })
-                    }
-                    required
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="Enter your Gmail address"
+                      className={`w-full pl-12 pr-4 py-3 bg-slate-900/50 border rounded-xl text-white placeholder-gray-500 focus:outline-none ${
+                        otpVerified
+                          ? "border-green-500/50"
+                          : "border-white/10 focus:border-cyan-500/50"
+                      }`}
+                      value={registerForm.email}
+                      onChange={(e) => {
+                        setRegisterForm({
+                          ...registerForm,
+                          email: e.target.value,
+                        });
+                        setOtpSent(false);
+                        setOtpVerified(false);
+                        setOtpCode("");
+                      }}
+                      disabled={otpVerified}
+                      pattern="^[a-zA-Z0-9._%+\-]+@gmail\.com$"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading || otpVerified || otpTimer > 0}
+                    className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-cyan-400 text-xs font-semibold hover:bg-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {otpVerified
+                      ? "✓ Verified"
+                      : otpTimer > 0
+                        ? `${Math.floor(otpTimer / 60)}:${String(otpTimer % 60).padStart(2, "0")}`
+                        : otpLoading
+                          ? "Sending..."
+                          : "Send OTP"}
+                  </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be a @gmail.com address
+                </p>
+
+                {otpSent && !otpVerified && (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="Enter 6-digit code"
+                      className="flex-1 px-4 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none tracking-widest text-center text-lg"
+                      value={otpCode}
+                      onChange={(e) =>
+                        setOtpCode(e.target.value.replace(/\D/, ""))
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={otpCode.length !== 6 || otpLoading}
+                      className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-xl text-purple-400 text-xs font-semibold hover:bg-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {otpLoading ? "Verifying..." : "Verify"}
+                    </button>
+                  </div>
+                )}
+
+                {otpVerified && (
+                  <p className="text-xs text-green-400 mt-1">
+                    ✓ Gmail verified successfully
+                  </p>
+                )}
               </div>
 
               {/* PHONE */}
