@@ -2,10 +2,22 @@ const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  pool: true,          // reuse connections instead of creating new ones
+  maxConnections: 5,
+  maxMessages: 100,
   auth: {
-    user: process.env.EMAIL_USER,  
-    pass: process.env.EMAIL_PASS,     
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
+});
+
+// Pre-verify connection on server startup so it's ready immediately
+transporter.verify((error) => {
+  if (error) {
+    console.error("Mail transporter error:", error);
+  } else {
+    console.log("Mail transporter ready");
+  }
 });
 
 const sendOtpEmail = async (toEmail, otp) => {
