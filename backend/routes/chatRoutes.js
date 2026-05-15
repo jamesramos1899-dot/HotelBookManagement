@@ -126,14 +126,16 @@ router.post('/hotel/guest/:guestId', protect, async (req, res) => {
 // GET /chats/:hotelId — guest gets messages with a specific hotel
 router.get('/:hotelId', protect, async (req, res) => {
   try {
-    let chat = await Chat.find({ hotel: req.params.hotelId, guest: req.user._id })
-      .populate('messages.sender', 'name role');
+    const chat = await Chat.findOne({ 
+      hotel: req.params.hotelId, 
+      guest: req.user._id 
+    }).populate('messages.sender', 'name role');
 
-    if (!chat || chat.length === 0) {
+    if (!chat) {
       return res.json({ success: true, data: { messages: [] } });
     }
 
-    res.json({ success: true, data: chat[0] });
+    res.json({ success: true, data: chat });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
