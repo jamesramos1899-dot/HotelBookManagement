@@ -5,7 +5,7 @@ const api = axios.create({
   // In production, it uses the relative path '/api' to trigger the Vercel rewrite.
   // In local development, it uses your local server.
   baseURL: process.env.NODE_ENV === 'production'
-  ? process.env.VITE_API_URL || 'https://hotelbookmanagement-copy-production.up.railway.app/api'
+  ? process.env.VITE_API_URL || 'https://hotelbookmanagement.onrender.com/api'
   : 'http://localhost:5001/api',
   headers: {
     'Content-Type': 'application/json',

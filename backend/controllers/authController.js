@@ -44,8 +44,8 @@ exports.register = async (req, res) => {
     if (numberOfUnits) userData.numberOfUnits = numberOfUnits;
 
     // Handle validId file upload
-    if (req.file) {
-      userData.validId = `/uploads/valid-ids/${req.file.filename}`;
+        if (req.file) {
+      userData.validId = req.file.path;  // Cloudinary URL
     }
 
     const user = await User.create(userData);

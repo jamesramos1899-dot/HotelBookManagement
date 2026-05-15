@@ -19,67 +19,13 @@ const {
 
 const { protect, authorize } = require("../middleware/auth"); // ✅ already lowercase
 
-// ================= MULTER SETUP FOR AVATAR =================
-const avatarStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/avatars/");
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "avatar-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// ================= CLOUDINARY STORAGE =================
+const { storage } = require('../config/cloudinary');
 
-const uploadAvatar = multer({
-  storage: avatarStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only image files are allowed"), false);
-    }
-  },
-});
-
-// ================= MULTER SETUP FOR VALID ID =================
-const validIdStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = "uploads/valid-ids/";
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "validid-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const uploadValidId = multer({
-  storage: validIdStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only JPG, PNG, or PDF files are allowed"), false);
-    }
-  },
-});
-
-// Create uploads directories if they don't exist
-if (!fs.existsSync("uploads/avatars")) {
-  fs.mkdirSync("uploads/avatars", { recursive: true });
-}
-if (!fs.existsSync("uploads/valid-ids")) {
-  fs.mkdirSync("uploads/valid-ids", { recursive: true });
-}
+const upload = multer({ storage });
 
 // ================= PUBLIC ROUTES =================
-router.post("/register", uploadValidId.single("validId"), register);
+router.post('/register', upload.single('validId'), register);
 router.post("/login", login);
 
 // ================= PRIVATE ROUTES (Any authenticated user) =================
@@ -106,11 +52,7 @@ router.put("/me", protect, async (req, res) => {
 });
 
 // UPDATE AVATAR
-router.put(
-  "/me/avatar",
-  protect,
-  uploadAvatar.single("avatar"),
-  async (req, res) => {
+router.put('/me/avatar', protect, upload.single('avatar'), async (req, res) => {
     try {
       if (!req.file) {
         return res
@@ -118,7 +60,7 @@ router.put(
           .json({ success: false, error: "Please upload an image" });
       }
 
-      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+          const avatarUrl = req.file.path;  // Cloudinary URL
 
       const user = await User.findByIdAndUpdate(
         req.user.id,
