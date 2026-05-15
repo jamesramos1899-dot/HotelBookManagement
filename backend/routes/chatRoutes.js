@@ -34,14 +34,22 @@ router.get('/hotel/all', protect, async (req, res) => {
 
     const hotelIds = hotels.map(h => h._id);
 
-    const chats = await Chat.find({ hotel: { $in: hotelIds } })
+    // Also search chats where hotelAdmin matches this user directly
+    const chats = await Chat.find({
+      $or: [
+        { hotel: { $in: hotelIds } },
+        { hotelAdmin: req.user._id }
+      ]
+    })
       .populate('guest', 'name email')
+      .populate('hotel', 'name')
       .sort({ updatedAt: -1 });
 
     const data = chats.map(chat => ({
       guestId: chat.guest._id,
       guestName: chat.guest.name,
       guestEmail: chat.guest.email,
+      hotelName: chat.hotel?.name || 'Hotel',
       lastMessage: chat.messages.length > 0
         ? chat.messages[chat.messages.length - 1].message
         : null
@@ -57,8 +65,11 @@ router.get('/hotel/all', protect, async (req, res) => {
 router.get('/hotel/guest/:guestId', protect, async (req, res) => {
   try {
     const hotels = await Hotel.find({
-      $or: [{ owner: req.user._id }, { createdBy: req.user._id }]
-    });
+  $or: [{ owner: req.user._id }, { createdBy: req.user._id }]
+});
+
+console.log('Hotel admin ID:', req.user._id);
+console.log('Found hotels:', hotels.length);
 
     const hotelIds = hotels.map(h => h._id);
 
