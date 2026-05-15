@@ -1533,15 +1533,6 @@ const SystemAdminProfileModal = ({
     confirmPassword: "",
   });
   const [loading, setLoading] = useState(false);
-  const [seenPartnerCount, setSeenPartnerCount] = useState(() =>
-    parseInt(localStorage.getItem("seenPartnerCount") || "0"),
-  );
-  const [seenUserCount, setSeenUserCount] = useState(() =>
-    parseInt(localStorage.getItem("seenUserCount") || "0"),
-  );
-  const [seenReviewCount, setSeenReviewCount] = useState(() =>
-    parseInt(localStorage.getItem("seenReviewCount") || "0"),
-  );
 
   useEffect(() => {
     if (show && currentUser) {
@@ -1880,6 +1871,15 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
   const [currentUser, setCurrentUser] = useState(user);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = React.useRef(null);
+  const [seenPartnerCount, setSeenPartnerCount] = useState(() =>
+    parseInt(localStorage.getItem("seenPartnerCount") || "0"),
+  );
+  const [seenUserCount, setSeenUserCount] = useState(() =>
+    parseInt(localStorage.getItem("seenUserCount") || "0"),
+  );
+  const [seenReviewCount, setSeenReviewCount] = useState(() =>
+    parseInt(localStorage.getItem("seenReviewCount") || "0"),
+  );
 
   const [hotelForm, setHotelForm] = useState({
     name: "",
