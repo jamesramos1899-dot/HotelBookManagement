@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const User = require("../models/User"); // ✅ lowercase "models"
+const User = require("../models/User");
 
 const {
   register,
@@ -12,20 +12,20 @@ const {
   approveHotelAdmin,
   getPendingHotelAdmins,
   getAllUsers,
-  updateUser, // ✅ Moved here (was imported twice)
-  deleteUser, // ✅ Moved here
-  registerHotelAdmin, // ✅ Moved here
-} = require("../controllers/authController"); // ✅ already lowercase
+  updateUser,
+  deleteUser,
+  registerHotelAdmin,
+} = require("../controllers/authController");
 
-const { protect, authorize } = require("../middleware/auth"); // ✅ already lowercase
+const { protect, authorize } = require("../middleware/auth");
 
 // ================= CLOUDINARY STORAGE =================
-const { storage } = require('../config/cloudinary');
+const { storage } = require("../config/cloudinary");
 
 const upload = multer({ storage });
 
 // ================= PUBLIC ROUTES =================
-router.post('/register', upload.single('validId'), register);
+router.post("/register", upload.single("validId"), register);
 router.post("/login", login);
 
 // ================= PRIVATE ROUTES (Any authenticated user) =================
@@ -52,31 +52,30 @@ router.put("/me", protect, async (req, res) => {
 });
 
 // UPDATE AVATAR
-router.put('/me/avatar', protect, upload.single('avatar'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Please upload an image" });
-      }
-
-          const avatarUrl = req.file.path;  // Cloudinary URL
-
-      const user = await User.findByIdAndUpdate(
-        req.user.id,
-        { avatar: avatarUrl },
-        { new: true },
-      );
-
-      res.json({
-        success: true,
-        data: { avatar: avatarUrl },
-      });
-    } catch (error) {
-      res.status(400).json({ success: false, error: error.message });
+router.put("/me/avatar", protect, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Please upload an image" });
     }
-  },
-);
+
+    const avatarUrl = req.file.path;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatar: avatarUrl },
+      { new: true },
+    );
+
+    res.json({
+      success: true,
+      data: { avatar: avatarUrl },
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 
 // ================= SYSTEM ADMIN ONLY ROUTES =================
 router.get(
@@ -93,11 +92,9 @@ router.put(
 );
 router.get("/all-users", protect, authorize("system_admin"), getAllUsers);
 
-// ✅ Removed duplicate require - now using destructured imports above
 router.put("/users/:id", protect, authorize("system_admin"), updateUser);
 router.delete("/users/:id", protect, authorize("system_admin"), deleteUser);
 
-// ✅ Removed duplicate require - now using destructured imports above
 router.post(
   "/register-hotel-admin",
   protect,
@@ -141,7 +138,7 @@ router.post("/forgot-password", async (req, res) => {
 
     const token = crypto.randomBytes(32).toString("hex");
     user.resetPasswordToken = token;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    user.resetPasswordExpires = Date.now() + 3600000;
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
@@ -194,19 +191,57 @@ router.post("/reset-password/:token", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-// ================= TEST EMAIL ROUTE (TEMPORARY) =================
-router.get("/test-email", async (req, res) => {
-  try {
-    const sendEmail = require("../utils/sendEmail");
-    await sendEmail({
-      to: "techlass2025@gmail.com",
-      subject: "Railway Email Test",
-      html: "<h1>Email is working from Railway!</h1>",
-    });
-    res.json({ success: true, message: "Email sent!" });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
+
+const sendOtpEmail = require("../utils/sendOtp");
+
+// Temporary in-memory OTP store (or use Redis if you have it)
+const otpStore = new Map();
+
+// POST /api/auth/send-otp
+router.post("/send-otp", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email || !email.endsWith("@gmail.com")) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Must be a Gmail address" });
   }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+  otpStore.set(email, { otp, expiresAt });
+
+  try {
+    await sendOtpEmail(email, otp);
+    res.json({ success: true, message: "OTP sent successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "Failed to send OTP" });
+  }
+});
+
+// POST /api/auth/verify-otp
+router.post("/verify-otp", (req, res) => {
+  const { email, otp } = req.body;
+  const record = otpStore.get(email);
+
+  if (!record) {
+    return res
+      .status(400)
+      .json({ success: false, error: "No OTP found for this email" });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(email);
+    return res.status(400).json({ success: false, error: "OTP has expired" });
+  }
+
+  if (record.otp !== otp) {
+    return res.status(400).json({ success: false, error: "Invalid OTP" });
+  }
+
+  otpStore.delete(email);
+  res.json({ success: true, message: "Email verified successfully" });
 });
 
 module.exports = router;

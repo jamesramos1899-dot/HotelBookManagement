@@ -14,6 +14,11 @@ import api from "./services/api";
 
 const HotelAdminRegister = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
 
   const [form, setForm] = useState({
     name: "",
@@ -35,9 +40,108 @@ const HotelAdminRegister = ({ onSuccess, onBack }) => {
     setValidIdFile(file);
     setValidIdPreview(URL.createObjectURL(file));
   };
+  const handleSendOtp = async () => {
+    if (!form.email.endsWith("@gmail.com")) {
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Email",
+        text: "Only Gmail addresses (@gmail.com) are accepted.",
+        confirmButtonColor: "#ef4444",
+      });
+      return;
+    }
 
+    setOtpLoading(true);
+    try {
+      const response = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setOtpSent(true);
+        setOtpTimer(300);
+        Swal.fire({
+          icon: "success",
+          title: "OTP Sent!",
+          text: `A 6-digit code was sent to ${form.email}`,
+          confirmButtonColor: "#06b6d4",
+        });
+        const interval = setInterval(() => {
+          setOtpTimer((prev) => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Failed",
+          text: data.error,
+          confirmButtonColor: "#ef4444",
+        });
+      }
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Something went wrong.",
+        confirmButtonColor: "#ef4444",
+      });
+    }
+    setOtpLoading(false);
+  };
+
+  const handleVerifyOtp = async () => {
+    setOtpLoading(true);
+    try {
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, otp: otpCode }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setOtpVerified(true);
+        Swal.fire({
+          icon: "success",
+          title: "Email Verified!",
+          text: "Your Gmail has been verified. You can now complete registration.",
+          confirmButtonColor: "#06b6d4",
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Invalid OTP",
+          text: data.error,
+          confirmButtonColor: "#ef4444",
+        });
+      }
+    } catch {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Something went wrong.",
+        confirmButtonColor: "#ef4444",
+      });
+    }
+    setOtpLoading(false);
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!otpVerified) {
+      Swal.fire({
+        icon: "warning",
+        title: "Email Not Verified",
+        text: "Please verify your Gmail before submitting your application.",
+        confirmButtonColor: "#06b6d4",
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -262,16 +366,77 @@ const HotelAdminRegister = ({ onSuccess, onBack }) => {
 
             <div>
               <label className="text-sm text-gray-300">Email *</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none"
-                  onChange={(e) => updateForm("email", e.target.value)}
-                  required
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="email"
+                    placeholder="Enter your Gmail address"
+                    className={`w-full pl-12 pr-4 py-3 bg-slate-900/50 border rounded-xl text-white placeholder-gray-500 focus:outline-none ${
+                      otpVerified
+                        ? "border-green-500/50"
+                        : "border-white/10 focus:border-cyan-500/50"
+                    }`}
+                    value={form.email}
+                    onChange={(e) => {
+                      updateForm("email", e.target.value);
+                      setOtpSent(false);
+                      setOtpVerified(false);
+                      setOtpCode("");
+                    }}
+                    disabled={otpVerified}
+                    pattern="^[a-zA-Z0-9._%+\-]+@gmail\.com$"
+                    required
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={otpLoading || otpVerified || otpTimer > 0}
+                  className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-cyan-400 text-xs font-semibold hover:bg-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {otpVerified
+                    ? "✓ Verified"
+                    : otpTimer > 0
+                      ? `${Math.floor(otpTimer / 60)}:${String(otpTimer % 60).padStart(2, "0")}`
+                      : otpLoading
+                        ? "Sending..."
+                        : "Send OTP"}
+                </button>
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Must be a @gmail.com address
+              </p>
+
+              {/* OTP Input */}
+              {otpSent && !otpVerified && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    className="flex-1 px-4 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:border-cyan-500/50 focus:outline-none tracking-widest text-center text-lg"
+                    value={otpCode}
+                    onChange={(e) =>
+                      setOtpCode(e.target.value.replace(/\D/, ""))
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={otpCode.length !== 6 || otpLoading}
+                    className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-xl text-purple-400 text-xs font-semibold hover:bg-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {otpLoading ? "Verifying..." : "Verify"}
+                  </button>
+                </div>
+              )}
+
+              {otpVerified && (
+                <p className="text-xs text-green-400 mt-1">
+                  ✓ Gmail verified successfully
+                </p>
+              )}
             </div>
 
             <div>
