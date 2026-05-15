@@ -936,6 +936,12 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
   const [adminChatMessages, setAdminChatMessages] = useState([]);
   const [adminChatInput, setAdminChatInput] = useState("");
   const [adminChatLoading, setAdminChatLoading] = useState(false);
+  const [seenCounts, setSeenCounts] = useState(() => {
+    const stored = localStorage.getItem("seenCounts");
+    return stored
+      ? JSON.parse(stored)
+      : { bookings: 0, reviews: 0, messages: 0 };
+  });
 
   useEffect(() => {
     fetchData();
@@ -1159,7 +1165,24 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
         .length,
     };
   }, [bookings, rooms, hotel, reviews]);
+  const markAsSeen = (tab) => {
+    const updated = { ...seenCounts };
+    if (tab === "bookings") updated.bookings = bookings.length;
+    if (tab === "reviews") updated.reviews = reviews.length;
+    if (tab === "messages") updated.messages = guestConversations.length;
+    setSeenCounts(updated);
+    localStorage.setItem("seenCounts", JSON.stringify(updated));
+  };
 
+  const getUnseen = (tab) => {
+    if (tab === "bookings")
+      return Math.max(0, bookings.length - seenCounts.bookings);
+    if (tab === "reviews")
+      return Math.max(0, reviews.length - seenCounts.reviews);
+    if (tab === "messages")
+      return Math.max(0, guestConversations.length - seenCounts.messages);
+    return 0;
+  };
   const Sidebar = () => (
     <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="flex items-center gap-2 mb-8">
@@ -1186,15 +1209,21 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
           icon={Calendar}
           label="All Bookings"
           active={activeTab === "bookings"}
-          onClick={() => setActiveTab("bookings")}
-          badge={bookings.length}
+          onClick={() => {
+            setActiveTab("bookings");
+            markAsSeen("bookings");
+          }}
+          badge={getUnseen("bookings")}
         />
         <SidebarItem
           icon={MessageSquare}
           label="All Reviews"
           active={activeTab === "reviews"}
-          onClick={() => setActiveTab("reviews")}
-          badge={reviews.length}
+          onClick={() => {
+            setActiveTab("reviews");
+            markAsSeen("reviews");
+          }}
+          badge={getUnseen("reviews")}
         />
         <SidebarItem
           icon={MessageSquare}
@@ -1203,8 +1232,9 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
           onClick={() => {
             setActiveTab("messages");
             fetchGuestConversations();
+            markAsSeen("messages");
           }}
-          badge={guestConversations.length}
+          badge={getUnseen("messages")}
         />
         <SidebarItem
           icon={TrendingUp}
@@ -1880,6 +1910,7 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
       const bookingData = bookings.map((b) => [
         b.room?.roomNumber || "N/A",
         b.user?.name || "Guest",
+        b.user?.email || "N/A",
         new Date(b.checkInDate).toLocaleDateString(),
         new Date(b.checkOutDate).toLocaleDateString(),
         `PHP ${b.totalPrice}`,
