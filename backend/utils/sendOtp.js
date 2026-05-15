@@ -1,8 +1,10 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  pool: true,          // reuse connections instead of creating new ones
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  pool: true,
   maxConnections: 5,
   maxMessages: 100,
   auth: {
