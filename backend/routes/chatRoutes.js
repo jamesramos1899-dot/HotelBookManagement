@@ -34,7 +34,6 @@ router.get('/hotel/all', protect, async (req, res) => {
 
     const hotelIds = hotels.map(h => h._id);
 
-    // Also search chats where hotelAdmin matches this user directly
     const chats = await Chat.find({
       $or: [
         { hotel: { $in: hotelIds } },
@@ -45,7 +44,10 @@ router.get('/hotel/all', protect, async (req, res) => {
       .populate('hotel', 'name')
       .sort({ updatedAt: -1 });
 
-    const data = chats.map(chat => ({
+    // Filter out chats where guest was deleted
+    const validChats = chats.filter(chat => chat.guest);
+
+    const data = validChats.map(chat => ({
       guestId: chat.guest._id,
       guestName: chat.guest.name,
       guestEmail: chat.guest.email,
@@ -57,6 +59,7 @@ router.get('/hotel/all', protect, async (req, res) => {
 
     res.json({ success: true, data });
   } catch (err) {
+    console.error('Hotel/all error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
