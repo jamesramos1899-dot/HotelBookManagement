@@ -3235,30 +3235,67 @@ const Dashboard = ({ user, onLogout }) => {
                         <div
                           key={room._id}
                           onClick={() => isSelectable && handleSelectRoom(room)}
-                          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                          className={`rounded-xl border cursor-pointer transition-all overflow-hidden ${
                             isSelectable
                               ? "border-white/10 hover:border-cyan-500/50 hover:bg-white/5"
                               : "border-red-500/30 bg-red-500/5 opacity-50 cursor-not-allowed"
                           }`}
                         >
-                          <div className="flex justify-between">
-                            <div>
-                              <h5 className="font-bold capitalize">
-                                {room.type}
-                              </h5>
-                              <p className="text-sm text-gray-400">
-                                {room.description}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Capacity: {room.capacity} persons
-                              </p>
-                            </div>
-                            <span className="text-cyan-400 font-bold">
-                              ₱{room.pricePerNight}
-                              <span className="text-gray-500 text-xs font-normal">
-                                /night
+                          {/* Room Images */}
+                          {room.images &&
+                            room.images.filter((img) => img).length > 0 && (
+                              <div className="flex gap-1 h-32 overflow-hidden">
+                                {room.images
+                                  .filter((img) => img)
+                                  .slice(0, 3)
+                                  .map((img, idx) => (
+                                    <img
+                                      key={idx}
+                                      src={img}
+                                      alt={`${room.type} room ${idx + 1}`}
+                                      className={`object-cover h-full ${
+                                        room.images.filter((img) => img)
+                                          .length === 1
+                                          ? "w-full"
+                                          : room.images.filter((img) => img)
+                                                .length === 2
+                                            ? "w-1/2"
+                                            : idx === 0
+                                              ? "w-1/2"
+                                              : "w-1/4"
+                                      }`}
+                                      onError={(e) => {
+                                        e.target.style.display = "none";
+                                      }}
+                                    />
+                                  ))}
+                              </div>
+                            )}
+                          <div className="p-4">
+                            <div className="flex justify-between">
+                              <div>
+                                <h5 className="font-bold capitalize">
+                                  {room.type}
+                                </h5>
+                                <p className="text-sm text-gray-400">
+                                  {room.description}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Capacity: {room.capacity} persons
+                                </p>
+                                {!isSelectable && (
+                                  <p className="text-xs text-red-400 mt-1">
+                                    Requires {room.capacity} guests max
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-cyan-400 font-bold whitespace-nowrap ml-4">
+                                ₱{room.pricePerNight}
+                                <span className="text-gray-500 text-xs font-normal">
+                                  /night
+                                </span>
                               </span>
-                            </span>
+                            </div>
                           </div>
                         </div>
                       );

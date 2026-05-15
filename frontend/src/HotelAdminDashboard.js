@@ -487,6 +487,69 @@ const RoomModal = ({ show, onClose, editingRoom, hotelId, onSuccess }) => {
               className="w-full p-3 bg-slate-800 border border-white/10 rounded-xl text-white min-h-[80px]"
             />
           </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Images</label>
+            <div className="space-y-2">
+              {form.images.map((img, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="url"
+                    value={img}
+                    onChange={(e) => {
+                      const newImages = [...form.images];
+                      newImages[idx] = e.target.value;
+                      setForm({ ...form, images: newImages });
+                    }}
+                    placeholder="https://example.com/room-image.jpg"
+                    className="flex-1 p-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none text-sm"
+                  />
+                  {form.images.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newImages = form.images.filter(
+                          (_, i) => i !== idx,
+                        );
+                        setForm({ ...form, images: newImages });
+                      }}
+                      className="p-3 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {form.images[form.images.length - 1] !== "" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm({ ...form, images: [...form.images, ""] })
+                  }
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl text-sm hover:bg-white/10 transition-colors text-gray-400"
+                >
+                  <Plus className="w-4 h-4" /> Add Image URL
+                </button>
+              )}
+              {form.images.some((img) => img) && (
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {form.images
+                    .filter((img) => img)
+                    .map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`preview ${idx}`}
+                        className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="flex gap-3 pt-4">
             <button
               type="button"
@@ -1098,7 +1161,7 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
   }, [bookings, rooms, hotel, reviews]);
 
   const Sidebar = () => (
-    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col min-h-screen h-full">
+    <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="flex items-center gap-2 mb-8">
         <Building2 className="w-8 h-8 text-cyan-400" />
         <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
@@ -1673,6 +1736,31 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
                     </div>
                   </div>
                 </div>
+                <div className="mt-3 flex justify-end">
+                  <button
+                    onClick={async () => {
+                      const result = await Swal.fire({
+                        title: "Delete Booking?",
+                        text: "This cannot be undone!",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonColor: "#ef4444",
+                        confirmButtonText: "Yes, delete!",
+                      });
+                      if (!result.isConfirmed) return;
+                      try {
+                        await api.delete(`/bookings/${booking._id}/hard`);
+                        Swal.fire("Deleted", "Booking removed.", "success");
+                        fetchData();
+                      } catch (err) {
+                        showAlert("Error", "Failed to delete booking");
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete Booking
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -1717,6 +1805,33 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
               </div>
             </div>
             <p className="text-gray-300">{review.comment}</p>
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={async () => {
+                  const result = await Swal.fire({
+                    title: "Delete Review?",
+                    text: "This cannot be undone!",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#ef4444",
+                    confirmButtonText: "Yes, delete!",
+                  });
+                  if (!result.isConfirmed) return;
+                  try {
+                    await api.delete(
+                      `/hotels/${hotel._id}/reviews/${review._id}`,
+                    );
+                    Swal.fire("Deleted", "Review removed.", "success");
+                    fetchData();
+                  } catch (err) {
+                    showAlert("Error", "Failed to delete review");
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors text-sm"
+              >
+                <Trash2 className="w-4 h-4" /> Delete Review
+              </button>
+            </div>
           </div>
         ))}
         {reviews.length === 0 && (
@@ -1912,7 +2027,7 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
     );
   };
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex">
+    <div className="h-screen bg-slate-950 text-white flex overflow-hidden">
       <AlertModal
         isOpen={alertModal.isOpen}
         onClose={() => setAlertModal((prev) => ({ ...prev, isOpen: false }))}

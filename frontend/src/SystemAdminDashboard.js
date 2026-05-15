@@ -623,8 +623,11 @@ const Sidebar = ({
   currentUser,
   handleSignOut,
   onEditProfile,
+  newPartnerCount,
+  newUserCount,
+  newReviewCount,
 }) => (
-  <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col min-h-screen h-full">
+  <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
     <div className="flex items-center gap-2 mb-8">
       <Building2 className="w-8 h-8 text-cyan-400" />
       <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
@@ -650,21 +653,21 @@ const Sidebar = ({
         label="Pending Partners"
         active={activeTab === "partners"}
         onClick={() => setActiveTab("partners")}
-        badge={pendingPartners.length}
+        badge={newPartnerCount}
       />
       <SidebarItem
         icon={Users}
         label="Manage Users"
         active={activeTab === "users"}
         onClick={() => setActiveTab("users")}
-        badge={allUsers.length}
+        badge={newUserCount}
       />
       <SidebarItem
         icon={MessageSquare}
         label="All Reviews"
         active={activeTab === "reviews"}
         onClick={() => setActiveTab("reviews")}
-        badge={stats.totalReviews}
+        badge={newReviewCount}
       />
       <SidebarItem
         icon={TrendingUp}
@@ -687,11 +690,13 @@ const Sidebar = ({
               className="w-full h-full object-cover"
               onError={(e) => {
                 e.target.style.display = "none";
+                e.target.nextSibling.style.display = "flex";
               }}
             />
           ) : null}
           <span
-            className={`${currentUser?.avatar ? "hidden" : "flex"} items-center justify-center w-full h-full`}
+            style={{ display: currentUser?.avatar ? "none" : "flex" }}
+            className="items-center justify-center w-full h-full"
           >
             {currentUser?.name?.charAt(0) || "S"}
           </span>
@@ -1528,6 +1533,15 @@ const SystemAdminProfileModal = ({
     confirmPassword: "",
   });
   const [loading, setLoading] = useState(false);
+  const [seenPartnerCount, setSeenPartnerCount] = useState(() =>
+    parseInt(localStorage.getItem("seenPartnerCount") || "0"),
+  );
+  const [seenUserCount, setSeenUserCount] = useState(() =>
+    parseInt(localStorage.getItem("seenUserCount") || "0"),
+  );
+  const [seenReviewCount, setSeenReviewCount] = useState(() =>
+    parseInt(localStorage.getItem("seenReviewCount") || "0"),
+  );
 
   useEffect(() => {
     if (show && currentUser) {
@@ -1791,7 +1805,6 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
 
-
   const [pendingPartners, setPendingPartners] = useState([]);
 
   useEffect(() => {
@@ -1960,6 +1973,7 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
           "user",
           JSON.stringify({ ...stored, avatar: newAvatarUrl }),
         );
+        localStorage.setItem("systemAdminAvatar", newAvatarUrl);
         showAlert("Success", "Profile photo updated", "success");
       }
     } catch (err) {
@@ -2334,7 +2348,7 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
   }, [hotels]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex">
+    <div className="h-screen bg-slate-950 text-white flex overflow-hidden">
       <AlertModal
         isOpen={alertModal.isOpen}
         onClose={closeAlert}
@@ -2383,7 +2397,21 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
 
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === "partners") {
+            setSeenPartnerCount(pendingPartners.length);
+            localStorage.setItem("seenPartnerCount", pendingPartners.length);
+          }
+          if (tab === "users") {
+            setSeenUserCount(allUsers.length);
+            localStorage.setItem("seenUserCount", allUsers.length);
+          }
+          if (tab === "reviews") {
+            setSeenReviewCount(stats.totalReviews);
+            localStorage.setItem("seenReviewCount", stats.totalReviews);
+          }
+        }}
         pendingPartners={pendingPartners}
         allUsers={allUsers}
         stats={stats}
@@ -2391,6 +2419,9 @@ const SystemAdminDashboard = ({ user, onLogout }) => {
         currentUser={currentUser}
         handleSignOut={handleSignOut}
         onEditProfile={() => setShowProfile(true)}
+        newPartnerCount={Math.max(0, pendingPartners.length - seenPartnerCount)}
+        newUserCount={Math.max(0, allUsers.length - seenUserCount)}
+        newReviewCount={Math.max(0, stats.totalReviews - seenReviewCount)}
       />
 
       <div className="flex-1 p-8 overflow-y-auto">
