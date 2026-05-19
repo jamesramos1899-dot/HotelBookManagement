@@ -864,11 +864,13 @@ const HotelsView = ({
 
   const filteredHotels = useMemo(
     () =>
-      hotels.filter(
-        (h) =>
-          h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          h.location.city.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
+      [...hotels]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .filter(
+          (h) =>
+            h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            h.location.city.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
     [hotels, searchQuery],
   );
 

@@ -1507,7 +1507,7 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
         <h3 className="text-lg font-bold mb-4">Recent Bookings</h3>
         <div className="space-y-3 max-h-64 overflow-y-auto">
-          {bookings.slice(0, 5).map((booking) => (
+          {[...bookings].sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate)).slice(0, 5).map((booking) => (
             <div
               key={booking._id}
               className="flex items-center justify-between p-3 bg-white/5 rounded-xl"
@@ -1698,11 +1698,25 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
   };
 
   // BOOKINGS VIEW
-  const BookingsView = () => (
+  const BookingsView = () => {
+    const [bookingFilter, setBookingFilter] = useState("recent");
+    const today = new Date(); today.setHours(0,0,0,0);
+    const filteredBookings = [...bookings]
+      .sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate))
+      .filter((b) => bookingFilter === "recent"
+        ? new Date(b.checkOutDate) >= today
+        : new Date(b.checkOutDate) < today);
+    return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">All Bookings</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">All Bookings</h2>
+        <div className="flex gap-2">
+          <button onClick={() => setBookingFilter("recent")} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${bookingFilter === "recent" ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-400" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>Recent</button>
+          <button onClick={() => setBookingFilter("old")} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${bookingFilter === "old" ? "bg-purple-500/20 border border-purple-500/30 text-purple-400" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>Old</button>
+        </div>
+      </div>
       <div className="grid gap-4">
-        {bookings.map((booking) => {
+        {filteredBookings.map((booking) => {
           const nights = Math.ceil(
             (new Date(booking.checkOutDate) - new Date(booking.checkInDate)) /
               (1000 * 60 * 60 * 24),
@@ -1766,44 +1780,20 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={async () => {
-                      const result = await Swal.fire({
-                        title: "Delete Booking?",
-                        text: "This cannot be undone!",
-                        icon: "warning",
-                        showCancelButton: true,
-                        confirmButtonColor: "#ef4444",
-                        confirmButtonText: "Yes, delete!",
-                      });
-                      if (!result.isConfirmed) return;
-                      try {
-                        await api.delete(`/bookings/${booking._id}/hard`);
-                        Swal.fire("Deleted", "Booking removed.", "success");
-                        fetchData();
-                      } catch (err) {
-                        showAlert("Error", "Failed to delete booking");
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors text-sm"
-                  >
-                    <Trash2 className="w-4 h-4" /> Delete Booking
-                  </button>
-                </div>
               </div>
             </div>
           );
         })}
-        {bookings.length === 0 && (
+        {filteredBookings.length === 0 && (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No bookings found.</p>
+            <p className="text-gray-400">No {bookingFilter === "recent" ? "recent" : "old"} bookings found.</p>
           </div>
         )}
       </div>
     </div>
   );
+  };
 
   // REVIEWS VIEW
   const ReviewsView = () => (
