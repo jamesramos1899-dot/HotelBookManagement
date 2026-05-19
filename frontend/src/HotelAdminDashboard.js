@@ -943,11 +943,17 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
       : { bookings: 0, reviews: 0, messages: 0 };
   });
 
+  const bookingPollingRef = React.useRef(null);
+
   useEffect(() => {
     fetchData();
     fetchGuestConversations();
+    bookingPollingRef.current = setInterval(() => {
+      fetchData();
+    }, 5000);
     return () => {
       if (adminPollingRef.current) clearInterval(adminPollingRef.current);
+      if (bookingPollingRef.current) clearInterval(bookingPollingRef.current);
     };
     // Load avatar from localStorage on mount
     const stored = JSON.parse(localStorage.getItem("user") || "{}");
@@ -1186,10 +1192,27 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
   const Sidebar = () => (
     <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="flex items-center gap-2 mb-8">
-        <Building2 className="w-8 h-8 text-cyan-400" />
-        <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-          Hotel Admin
-        </span>
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="10" fill="url(#logoGrad)"/>
+        <rect x="8" y="13" width="20" height="16" rx="2" fill="white" fillOpacity="0.15"/>
+        <rect x="8" y="13" width="20" height="16" rx="2" stroke="white" strokeOpacity="0.6" strokeWidth="1.2"/>
+        <path d="M13 13V10C13 9.45 13.45 9 14 9H22C22.55 9 23 9.45 23 10V13" stroke="white" strokeOpacity="0.8" strokeWidth="1.4" strokeLinecap="round"/>
+        <rect x="11" y="17" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="16.5" y="17" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="22" y="17" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="11" y="22" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="22" y="22" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="15.5" y="22" width="5" height="7" rx="1" fill="white" fillOpacity="0.9"/>
+        <defs>
+          <linearGradient id="logoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#06b6d4"/>
+            <stop offset="1" stopColor="#a855f7"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+        Hotel Admin
+      </span>
       </div>
 
       <nav className="space-y-2 flex-1">
@@ -1702,18 +1725,22 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
     const [bookingFilter, setBookingFilter] = useState("recent");
     const today = new Date(); today.setHours(0,0,0,0);
     const filteredBookings = [...bookings]
-      .sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate))
-      .filter((b) => bookingFilter === "recent"
-        ? new Date(b.checkOutDate) >= today
-        : new Date(b.checkOutDate) < today);
+      .sort((a, b) => bookingFilter === "recent"
+        ? new Date(b.checkInDate) - new Date(a.checkInDate)
+        : new Date(a.checkInDate) - new Date(b.checkInDate)
+      );
     return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">All Bookings</h2>
-        <div className="flex gap-2">
-          <button onClick={() => setBookingFilter("recent")} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${bookingFilter === "recent" ? "bg-cyan-500/20 border border-cyan-500/30 text-cyan-400" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>Recent</button>
-          <button onClick={() => setBookingFilter("old")} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${bookingFilter === "old" ? "bg-purple-500/20 border border-purple-500/30 text-purple-400" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}>Old</button>
-        </div>
+        <select
+          value={bookingFilter}
+          onChange={(e) => setBookingFilter(e.target.value)}
+          className="px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white focus:border-cyan-500/50 focus:outline-none"
+        >
+          <option value="recent">Newest First</option>
+          <option value="old">Oldest First</option>
+        </select>
       </div>
       <div className="grid gap-4">
         {filteredBookings.map((booking) => {
@@ -1787,7 +1814,7 @@ const HotelAdminDashboard = ({ user, onLogout }) => {
         {filteredBookings.length === 0 && (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No {bookingFilter === "recent" ? "recent" : "old"} bookings found.</p>
+            <p className="text-gray-400">No bookings found.</p>
           </div>
         )}
       </div>

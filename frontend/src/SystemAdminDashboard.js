@@ -629,7 +629,26 @@ const Sidebar = ({
 }) => (
   <div className="w-64 bg-slate-900/50 border-r border-white/10 p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
     <div className="flex items-center gap-2 mb-8">
-      <Building2 className="w-8 h-8 text-cyan-400" />
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="10" fill="url(#sysLogoGrad)"/>
+        <rect x="8" y="13" width="20" height="16" rx="2" fill="white" fillOpacity="0.15"/>
+        <rect x="8" y="13" width="20" height="16" rx="2" stroke="white" strokeOpacity="0.6" strokeWidth="1.2"/>
+        <path d="M13 13V10C13 9.45 13.45 9 14 9H22C22.55 9 23 9.45 23 10V13" stroke="white" strokeOpacity="0.8" strokeWidth="1.4" strokeLinecap="round"/>
+        <rect x="11" y="17" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="16.5" y="17" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="22" y="17" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="11" y="22" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="22" y="22" width="3" height="3" rx="0.8" fill="white" fillOpacity="0.7"/>
+        <rect x="15.5" y="22" width="5" height="7" rx="1" fill="white" fillOpacity="0.9"/>
+        <circle cx="27" cy="9" r="5" fill="#a855f7"/>
+        <path d="M27 7v2.5l1.5 1.5" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+        <defs>
+          <linearGradient id="sysLogoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#06b6d4"/>
+            <stop offset="1" stopColor="#a855f7"/>
+          </linearGradient>
+        </defs>
+      </svg>
       <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
         System Admin
       </span>
@@ -926,13 +945,6 @@ const HotelsView = ({
                       title="View Reviews"
                     >
                       <Star className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteHotel(hotel._id)}
-                      className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
